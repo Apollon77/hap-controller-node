@@ -1,0 +1,40 @@
+{
+  "name": "hap-controller",
+  "version": "0.1.0",
+  "description": "Library to implement a HAP (HomeKit) controller",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrstegeman/hap-controller-node.git"
+  },
+  "keywords": [
+    "HomeKit",
+    "HAP",
+    "controller"
+  ],
+  "author": "Michael Stegeman <michael@stegeman.me>",
+  "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/mrstegeman/hap-controller-node/issues"
+  },
+  "homepage": "https://github.com/mrstegeman/hap-controller-node#readme",
+  "dependencies": {
+    "dnssd": "^0.4.1",
+    "fast-srp-hap": "^1.0.1",
+    "hkdf": "0.0.2",
+    "http-parser-js": "^0.4.13",
+    "libsodium-wrappers": "^0.7.3",
+    "noble": "^1.9.1",
+    "uuid": "^3.3.2"
+  },
+  "devDependencies": {
+    "babel-eslint": "^9.0.0",
+    "eslint": "^5.5.0"
+  }
+}
