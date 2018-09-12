@@ -2,7 +2,7 @@
   "name": "hap-controller",
   "version": "0.1.0",
   "description": "Library to implement a HAP (HomeKit) controller",
-  "main": "index.js",
+  "main": "lib/index.js",
   "directories": {
     "lib": "lib"
   },
