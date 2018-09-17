@@ -18,7 +18,7 @@
     "HAP",
     "controller"
   ],
-  "author": "Michael Stegeman <michael@stegeman.me>",
+  "author": "Michael Stegeman",
   "license": "MPL-2.0",
   "bugs": {
     "url": "https://github.com/mrstegeman/hap-controller-node/issues"
