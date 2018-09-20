@@ -50,7 +50,7 @@ ipClient.identify().then(() => {
   // ...
 }).catch((e) => console.error(e));
 
-const bleClient = new HttpClient(id, address, port);
+const bleClient = new GattClient(id, peripheral);
 bleClient.identify().then(() => {
   // ...
 }).catch((e) => console.error(e));
@@ -67,7 +67,7 @@ ipClient.pairSetup(pin).then(() => {
   console.log(JSON.stringify(ipClient.getLongTermData(), null, 2));
 }).catch((e) => console.error(e));
 
-const bleClient = new HttpClient(id, address, port);
+const bleClient = new GattClient(id, peripheral);
 bleClient.pairSetup(pin).then(() => {
   // keep this data
   console.log(JSON.stringify(bleClient.getLongTermData(), null, 2));
@@ -88,7 +88,7 @@ ipClient.removePairing(identifier).then(() => {
   // ...
 }).catch((e) => console.error(e));
 
-const bleClient = new HttpClient(id, address, port, pairingData);
+const bleClient = new GattClient(id, peripheral, pairingData);
 bleClient.listPairings().then(() => {
   // ...
 }).catch((e) => console.error(e));
@@ -108,7 +108,7 @@ ipClient.getAccessories().then((accessories) => {
   // ...
 }).catch((e) => console.error(e));
 
-const bleClient = new HttpClient(id, address, port, pairingData);
+const bleClient = new GattClient(id, peripheral, pairingData);
 bleClient.getAccessories().then((accessories) => {
   // ...
 }).catch((e) => console.error(e));
@@ -136,7 +136,7 @@ ipClient.setCharacteristics({'1.10': true}).then(() => {
   // ...
 }).catch((e) => console.error(e));
 
-const bleClient = new HttpClient(id, address, port, pairingData);
+const bleClient = new GattClient(id, peripheral, pairingData);
 bleClient.getCharacteristics(
   [
     {
@@ -191,7 +191,7 @@ ipClient.unsubscribeCharacteristics(['1.10'], connection).then(() => {
   // ...
 }).catch((e) => console.error(e));
 
-const bleClient = new HttpClient(id, address, port, pairingData);
+const bleClient = new GattClient(id, peripheral, pairingData);
 
 bleClient.on('event', (ev) => {
   // ...
