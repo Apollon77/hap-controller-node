@@ -37,7 +37,7 @@ const bleDiscovery = new BLEDiscovery();
 bleDiscovery.on('serviceUp', (service) => {
   // ...
 });
-bleDiscovery.start();
+bleDiscovery.start();  // pass true if disconnected events are needed
 ```
 
 ### Identify
