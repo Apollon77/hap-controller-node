@@ -1,6 +1,6 @@
 {
   "name": "hap-controller",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Library to implement a HAP (HomeKit) controller",
   "main": "lib/index.js",
   "directories": {
@@ -35,6 +35,6 @@
   },
   "devDependencies": {
     "babel-eslint": "^10.0.1",
-    "eslint": "^5.8.0"
+    "eslint": "^5.10.0"
   }
 }
