@@ -29,12 +29,12 @@
     "fast-srp-hap": "^1.0.1",
     "hkdf": "0.0.2",
     "http-parser-js": "^0.5.0",
-    "libsodium-wrappers": "^0.7.3",
+    "libsodium-wrappers": "^0.7.4",
     "noble": "^1.9.1",
     "uuid": "^3.3.2"
   },
   "devDependencies": {
     "babel-eslint": "^10.0.1",
-    "eslint": "^5.10.0"
+    "eslint": "^5.13.0"
   }
 }
