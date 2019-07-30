@@ -1,10 +1,10 @@
 # hap-controller
 
-![npm](https://img.shields.io/npm/v/hap-controller.svg)
-![GitHub License](https://img.shields.io/github/license/mrstegeman/hap-controller-node.svg)
-![Dependency status](https://david-dm.org/mrstegeman/hap-controller-node.svg)
+[![npm](https://img.shields.io/npm/v/hap-controller.svg)](https://www.npmjs.com/package/hap-controller)
+[![GitHub License](https://img.shields.io/github/license/mrstegeman/hap-controller-node.svg)](LICENSE)
+[![Dependency status](https://david-dm.org/mrstegeman/hap-controller-node.svg)](https://david-dm.org/mrstegeman/hap-controller-node)
 
-This library allows you to build a HomeKit controller, capable of discovering and controlling both WiFi and BLE devices.
+This library allows you to build a HomeKit controller, capable of discovering and controlling both Wi-Fi and BLE devices.
 
 ## Installation
 
