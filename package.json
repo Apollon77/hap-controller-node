@@ -31,10 +31,10 @@
     "http-parser-js": "^0.5.1",
     "libsodium-wrappers": "^0.7.5",
     "@abandonware/noble": "^1.9.2-3",
-    "uuid": "^3.3.2"
+    "uuid": "^3.3.3"
   },
   "devDependencies": {
-    "babel-eslint": "^10.0.2",
-    "eslint": "^6.1.0"
+    "babel-eslint": "^10.0.3",
+    "eslint": "^6.2.2"
   }
 }
