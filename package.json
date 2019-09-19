@@ -1,6 +1,6 @@
 {
   "name": "hap-controller",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Library to implement a HAP (HomeKit) controller",
   "main": "lib/index.js",
   "directories": {
@@ -30,11 +30,11 @@
     "hkdf": "0.0.2",
     "http-parser-js": "^0.5.1",
     "libsodium-wrappers": "^0.7.5",
-    "@abandonware/noble": "^1.9.2-3",
+    "@abandonware/noble": "^1.9.2-5",
     "uuid": "^3.3.3"
   },
   "devDependencies": {
     "babel-eslint": "^10.0.3",
-    "eslint": "^6.2.2"
+    "eslint": "^6.4.0"
   }
 }
