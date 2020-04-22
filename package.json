@@ -1,6 +1,6 @@
 {
   "name": "hap-controller",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Library to implement a HAP (HomeKit) controller",
   "main": "lib/index.js",
   "directories": {
@@ -28,7 +28,7 @@
   "dependencies": {
     "@abandonware/noble": "^1.9.2-8",
     "dnssd": "^0.4.1",
-    "fast-srp-hap": "^1.0.1",
+    "fast-srp-hap": "^2.0.2",
     "hkdf": "0.0.2",
     "http-parser-js": "^0.5.2",
     "libsodium-wrappers": "^0.7.6",
