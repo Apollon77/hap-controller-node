@@ -1,6 +1,6 @@
 {
   "name": "hap-controller",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Library to implement a HAP (HomeKit) controller",
   "main": "lib/index.js",
   "directories": {
@@ -26,18 +26,18 @@
   },
   "homepage": "https://github.com/mrstegeman/hap-controller-node#readme",
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-8",
+    "@abandonware/noble": "^1.9.2-9",
     "dnssd": "^0.4.1",
     "fast-srp-hap": "^2.0.2",
     "hkdf": "0.0.2",
     "http-parser-js": "^0.5.2",
     "libsodium-wrappers": "^0.7.6",
-    "uuid": "^8.0.0"
+    "uuid": "^8.2.0"
   },
   "devDependencies": {
     "babel-eslint": "^10.1.0",
-    "eslint": "^6.8.0",
+    "eslint": "^7.4.0",
     "event-to-promise": "^0.8.0",
-    "jest": "^25.5.3"
+    "jest": "^26.1.0"
   }
 }
