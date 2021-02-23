@@ -26,18 +26,20 @@
   },
   "homepage": "https://github.com/mrstegeman/hap-controller-node#readme",
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-10",
+    "@abandonware/noble": "^1.9.2-11",
     "dnssd": "^0.4.1",
-    "fast-srp-hap": "^2.0.2",
+    "fast-srp-hap": "^2.0.3",
     "hkdf": "0.0.2",
-    "http-parser-js": "^0.5.2",
-    "libsodium-wrappers": "^0.7.8",
-    "uuid": "^8.3.1"
+    "http-parser-js": "^0.5.3",
+    "libsodium-wrappers": "^0.7.9",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "babel-eslint": "^10.1.0",
-    "eslint": "^7.14.0",
+    "eslint": "^7.20.0",
+    "eslint-config-prettier": "^8.0.0",
     "event-to-promise": "^0.8.0",
-    "jest": "^26.6.3"
+    "jest": "^26.6.3",
+    "prettier": "^2.2.1"
   }
 }
