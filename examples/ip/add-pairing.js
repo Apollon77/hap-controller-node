@@ -1,4 +1,4 @@
-const {HttpClient, IPDiscovery} = require('hap-controller');
+const { HttpClient, IPDiscovery } = require('hap-controller');
 const sodium = require('libsodium-wrappers');
 
 const discovery = new IPDiscovery();
@@ -19,14 +19,10 @@ const isAdmin = false;
 discovery.on('serviceUp', (service) => {
   console.log('Found device!');
 
-  const client = new HttpClient(
-    service.id,
-    service.address,
-    service.port,
-    pairingData
-  );
+  const client = new HttpClient(service.id, service.address, service.port, pairingData);
 
-  client.addPairing(identifier, Buffer.from(key.publicKey), isAdmin)
+  client
+    .addPairing(identifier, Buffer.from(key.publicKey), isAdmin)
     .then(() => console.log('Done!'))
     .catch((e) => console.error(e));
 });

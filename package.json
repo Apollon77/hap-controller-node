@@ -8,6 +8,7 @@
   },
   "scripts": {
     "lint": "eslint .",
+    "prettier": "prettier -u -w examples lib",
     "test": "jest"
   },
   "repository": {

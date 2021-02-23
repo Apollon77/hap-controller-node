@@ -3,7 +3,7 @@ const readline = require('readline').createInterface({
   output: process.stdout,
 });
 
-const {HttpClient, IPDiscovery} = require('../../lib');
+const { HttpClient, IPDiscovery } = require('../../lib');
 
 const discovery = new IPDiscovery();
 

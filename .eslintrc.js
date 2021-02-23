@@ -150,7 +150,7 @@ module.exports = {
     ],
     'object-curly-spacing': [
       'error',
-      'never'
+      'always'
     ],
     'object-property-newline': [
       'error',

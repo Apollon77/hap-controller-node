@@ -1,4 +1,4 @@
-const {BLEDiscovery} = require('hap-controller');
+const { BLEDiscovery } = require('hap-controller');
 
 const discovery = new BLEDiscovery();
 

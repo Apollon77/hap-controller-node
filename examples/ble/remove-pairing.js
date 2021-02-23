@@ -1,4 +1,4 @@
-const {BLEDiscovery, GattClient} = require('hap-controller');
+const { BLEDiscovery, GattClient } = require('hap-controller');
 
 const discovery = new BLEDiscovery();
 
@@ -13,13 +13,10 @@ const pairingData = {
 discovery.on('serviceUp', (service) => {
   console.log('Found device!');
 
-  const client = new GattClient(
-    service.DeviceID,
-    service.peripheral,
-    pairingData
-  );
+  const client = new GattClient(service.DeviceID, service.peripheral, pairingData);
 
-  client.removePairing(client.pairingProtocol.iOSDevicePairingID)
+  client
+    .removePairing(client.pairingProtocol.iOSDevicePairingID)
     .then(() => console.log('Done!'))
     .catch((e) => console.error(e));
 });

@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
+      - name: Check formatting with prettier
+        run: |
+          npx prettier -u -c examples lib
       - name: Lint with eslint
         run: |
           npm run lint

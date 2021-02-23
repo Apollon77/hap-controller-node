@@ -1,4 +1,4 @@
-const {IPDiscovery} = require('hap-controller');
+const { IPDiscovery } = require('hap-controller');
 
 const discovery = new IPDiscovery();
 
