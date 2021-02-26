@@ -29,9 +29,9 @@
     "@abandonware/noble": "^1.9.2-11",
     "dnssd": "^0.4.1",
     "fast-srp-hap": "^2.0.3",
-    "hkdf": "0.0.2",
     "http-parser-js": "^0.5.3",
     "libsodium-wrappers": "^0.7.9",
+    "node-hkdf-sync": "^1.0.0",
     "uuid": "^8.3.2"
   },
   "devDependencies": {

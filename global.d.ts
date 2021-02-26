@@ -30,9 +30,9 @@ declare module 'http-parser-js' {
   export { HTTPParser, ParserState };
 }
 
-declare module 'hkdf' {
+declare module 'node-hkdf-sync' {
   export default class HKDF {
     constructor(hashAlg: string, salt: Buffer | string, ikm: Buffer | string);
-    derive(info: Buffer | string, size: number, cb: (key: Buffer) => void): void;
+    derive(info: Buffer | string, size: number): Buffer;
   }
 }

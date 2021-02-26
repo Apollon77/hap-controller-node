@@ -6,7 +6,7 @@ import { decodeBuffer, encodeObject, TLV } from '../model/tlv';
 import * as sodium from 'libsodium-wrappers';
 import { v4 as uuidv4 } from 'uuid';
 import { SRP, SrpClient } from 'fast-srp-hap';
-import HKDF from 'hkdf';
+import HKDF from 'node-hkdf-sync';
 
 const Steps = {
   M1: 1,
@@ -345,61 +345,46 @@ export default class PairingProtocol {
 
     await sodium.ready;
 
-    return new Promise((resolve) => {
-      const seed = Buffer.from(sodium.randombytes_buf(32));
+    const seed = Buffer.from(sodium.randombytes_buf(32));
 
-      const key = sodium.crypto_sign_seed_keypair(seed);
-      this.iOSDeviceLTSK = Buffer.from(key.privateKey);
-      this.iOSDeviceLTPK = Buffer.from(key.publicKey);
+    const key = sodium.crypto_sign_seed_keypair(seed);
+    this.iOSDeviceLTSK = Buffer.from(key.privateKey);
+    this.iOSDeviceLTPK = Buffer.from(key.publicKey);
 
-      new HKDF('sha512', 'Pair-Setup-Controller-Sign-Salt', this.srpClient!.computeK()).derive(
-        'Pair-Setup-Controller-Sign-Info',
-        32,
-        (key) => {
-          const iOSDeviceX = key;
-          this.iOSDevicePairingID = Buffer.from(uuidv4());
-          const iOSDeviceInfo = Buffer.concat([
-            iOSDeviceX,
-            this.iOSDevicePairingID,
-            this.iOSDeviceLTPK!,
-          ]);
-          const iOSDeviceSignature = Buffer.from(
-            sodium.crypto_sign_detached(iOSDeviceInfo, this.iOSDeviceLTSK!)
-          );
+    const hkdf1 = new HKDF('sha512', 'Pair-Setup-Controller-Sign-Salt', this.srpClient!.computeK());
+    const iOSDeviceX = hkdf1.derive('Pair-Setup-Controller-Sign-Info', 32);
 
-          const data = new Map();
-          data.set(Types.kTLVType_Identifier, this.iOSDevicePairingID);
-          data.set(Types.kTLVType_PublicKey, this.iOSDeviceLTPK);
-          data.set(Types.kTLVType_Signature, iOSDeviceSignature);
-          const subTlv = encodeObject(data);
+    this.iOSDevicePairingID = Buffer.from(uuidv4());
+    const iOSDeviceInfo = Buffer.concat([iOSDeviceX, this.iOSDevicePairingID, this.iOSDeviceLTPK!]);
+    const iOSDeviceSignature = Buffer.from(
+      sodium.crypto_sign_detached(iOSDeviceInfo, this.iOSDeviceLTSK!)
+    );
 
-          new HKDF('sha512', 'Pair-Setup-Encrypt-Salt', this.srpClient!.computeK()).derive(
-            'Pair-Setup-Encrypt-Info',
-            32,
-            (sessionKey) => {
-              this.pairSetup.sessionKey = sessionKey;
+    const subData = new Map();
+    subData.set(Types.kTLVType_Identifier, this.iOSDevicePairingID);
+    subData.set(Types.kTLVType_PublicKey, this.iOSDeviceLTPK);
+    subData.set(Types.kTLVType_Signature, iOSDeviceSignature);
+    const subTlv = encodeObject(subData);
 
-              const encryptedData = Buffer.from(
-                sodium.crypto_aead_chacha20poly1305_ietf_encrypt(
-                  subTlv,
-                  null,
-                  null,
-                  Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PS-Msg05')]),
-                  this.pairSetup.sessionKey!
-                )
-              );
+    const hkdf2 = new HKDF('sha512', 'Pair-Setup-Encrypt-Salt', this.srpClient!.computeK());
+    this.pairSetup.sessionKey = hkdf2.derive('Pair-Setup-Encrypt-Info', 32);
 
-              const data = new Map();
-              data.set(Types.kTLVType_State, Buffer.from([Steps.M5]));
-              data.set(Types.kTLVType_EncryptedData, encryptedData);
-              const tlv = encodeObject(data);
+    const encryptedData = Buffer.from(
+      sodium.crypto_aead_chacha20poly1305_ietf_encrypt(
+        subTlv,
+        null,
+        null,
+        Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PS-Msg05')]),
+        this.pairSetup.sessionKey!
+      )
+    );
 
-              resolve(tlv);
-            }
-          );
-        }
-      );
-    });
+    const data = new Map();
+    data.set(Types.kTLVType_State, Buffer.from([Steps.M5]));
+    data.set(Types.kTLVType_EncryptedData, encryptedData);
+    const tlv = encodeObject(data);
+
+    return tlv;
   }
 
   /**
@@ -419,96 +404,71 @@ export default class PairingProtocol {
 
     await sodium.ready;
 
-    return new Promise((resolve, reject) => {
-      const tlv = decodeBuffer(m6Buffer);
+    const tlv = decodeBuffer(m6Buffer);
 
-      if (!tlv || tlv.size === 0) {
-        reject('M6: Empty TLV');
-        return;
-      }
+    if (!tlv || tlv.size === 0) {
+      throw new Error('M6: Empty TLV');
+    }
 
-      if (tlv.has(Types.kTLVType_Error)) {
-        reject(`M6: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
-        return;
-      }
+    if (tlv.has(Types.kTLVType_Error)) {
+      throw new Error(`M6: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+    }
 
-      if (!tlv.has(Types.kTLVType_State)) {
-        reject('M6: Missing state');
-        return;
-      }
+    if (!tlv.has(Types.kTLVType_State)) {
+      throw new Error('M6: Missing state');
+    }
 
-      const state = tlv.get(Types.kTLVType_State)![0];
-      if (state !== Steps.M6) {
-        reject(`M6: Invalid state: ${state}`);
-        return;
-      }
+    const state = tlv.get(Types.kTLVType_State)![0];
+    if (state !== Steps.M6) {
+      throw new Error(`M6: Invalid state: ${state}`);
+    }
 
-      if (!tlv.has(Types.kTLVType_EncryptedData)) {
-        reject('M6: Encrypted data missing from TLV');
-        return;
-      }
+    if (!tlv.has(Types.kTLVType_EncryptedData)) {
+      throw new Error('M6: Encrypted data missing from TLV');
+    }
 
-      let decryptedData;
-      try {
-        decryptedData = Buffer.from(
-          sodium.crypto_aead_chacha20poly1305_ietf_decrypt(
-            null,
-            tlv.get(Types.kTLVType_EncryptedData)!,
-            null,
-            Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PS-Msg06')]),
-            this.pairSetup.sessionKey!
-          )
-        );
-      } catch (_e) {
-        reject('M6: Decryption of sub-TLV failed');
-        return;
-      }
-
-      const subTlv = decodeBuffer(decryptedData);
-
-      if (!subTlv.has(Types.kTLVType_Signature)) {
-        reject('M6: Signature missing from sub-TLV');
-        return;
-      }
-
-      if (!subTlv.has(Types.kTLVType_Identifier)) {
-        reject('M6: Identifier missing from sub-TLV');
-        return;
-      }
-
-      if (!subTlv.has(Types.kTLVType_PublicKey)) {
-        reject('M6: Public key missing from sub-TLV');
-        return;
-      }
-
-      new HKDF('sha512', 'Pair-Setup-Accessory-Sign-Salt', this.srpClient!.computeK()).derive(
-        'Pair-Setup-Accessory-Sign-Info',
-        32,
-        (key) => {
-          const AccessoryX = key;
-          this.AccessoryPairingID = subTlv.get(Types.kTLVType_Identifier)!;
-          this.AccessoryLTPK = subTlv.get(Types.kTLVType_PublicKey)!;
-          const AccessorySignature = subTlv.get(Types.kTLVType_Signature)!;
-          const AccessoryInfo = Buffer.concat([
-            AccessoryX,
-            this.AccessoryPairingID,
-            this.AccessoryLTPK,
-          ]);
-
-          if (
-            sodium.crypto_sign_verify_detached(
-              AccessorySignature,
-              AccessoryInfo,
-              this.AccessoryLTPK
-            )
-          ) {
-            resolve(subTlv);
-          } else {
-            reject('M6: Signature verification failed');
-          }
-        }
+    let decryptedData;
+    try {
+      decryptedData = Buffer.from(
+        sodium.crypto_aead_chacha20poly1305_ietf_decrypt(
+          null,
+          tlv.get(Types.kTLVType_EncryptedData)!,
+          null,
+          Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PS-Msg06')]),
+          this.pairSetup.sessionKey!
+        )
       );
-    });
+    } catch (_e) {
+      throw new Error('M6: Decryption of sub-TLV failed');
+    }
+
+    const subTlv = decodeBuffer(decryptedData);
+
+    if (!subTlv.has(Types.kTLVType_Signature)) {
+      throw new Error('M6: Signature missing from sub-TLV');
+    }
+
+    if (!subTlv.has(Types.kTLVType_Identifier)) {
+      throw new Error('M6: Identifier missing from sub-TLV');
+    }
+
+    if (!subTlv.has(Types.kTLVType_PublicKey)) {
+      throw new Error('M6: Public key missing from sub-TLV');
+    }
+
+    const hkdf = new HKDF('sha512', 'Pair-Setup-Accessory-Sign-Salt', this.srpClient!.computeK());
+    const AccessoryX = hkdf.derive('Pair-Setup-Accessory-Sign-Info', 32);
+
+    this.AccessoryPairingID = subTlv.get(Types.kTLVType_Identifier)!;
+    this.AccessoryLTPK = subTlv.get(Types.kTLVType_PublicKey)!;
+    const AccessorySignature = subTlv.get(Types.kTLVType_Signature)!;
+    const AccessoryInfo = Buffer.concat([AccessoryX, this.AccessoryPairingID, this.AccessoryLTPK]);
+
+    if (sodium.crypto_sign_verify_detached(AccessorySignature, AccessoryInfo, this.AccessoryLTPK)) {
+      return subTlv;
+    } else {
+      throw new Error('M6: Signature verification failed');
+    }
   }
 
   /**
@@ -550,111 +510,87 @@ export default class PairingProtocol {
 
     await sodium.ready;
 
-    return new Promise((resolve, reject) => {
-      const tlv = decodeBuffer(m2Buffer);
+    const tlv = decodeBuffer(m2Buffer);
 
-      if (!tlv || tlv.size === 0) {
-        reject('M2: Empty TLV');
-        return;
-      }
+    if (!tlv || tlv.size === 0) {
+      throw new Error('M2: Empty TLV');
+    }
 
-      if (tlv.has(Types.kTLVType_Error)) {
-        reject(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
-        return;
-      }
+    if (tlv.has(Types.kTLVType_Error)) {
+      throw new Error(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+    }
 
-      if (!tlv.has(Types.kTLVType_State)) {
-        reject('M2: Missing state');
-        return;
-      }
+    if (!tlv.has(Types.kTLVType_State)) {
+      throw new Error('M2: Missing state');
+    }
 
-      const state = tlv.get(Types.kTLVType_State)![0];
-      if (state !== Steps.M2) {
-        reject(`M2: Invalid state: ${state}`);
-        return;
-      }
+    const state = tlv.get(Types.kTLVType_State)![0];
+    if (state !== Steps.M2) {
+      throw new Error(`M2: Invalid state: ${state}`);
+    }
 
-      if (!tlv.has(Types.kTLVType_PublicKey)) {
-        reject('M2: Public key missing from TLV');
-        return;
-      }
+    if (!tlv.has(Types.kTLVType_PublicKey)) {
+      throw new Error('M2: Public key missing from TLV');
+    }
 
-      if (!tlv.has(Types.kTLVType_EncryptedData)) {
-        reject('M2: Encrypted data missing from TLV');
-        return;
-      }
+    if (!tlv.has(Types.kTLVType_EncryptedData)) {
+      throw new Error('M2: Encrypted data missing from TLV');
+    }
 
-      this.pairVerify.accessoryPublicKey = tlv.get(Types.kTLVType_PublicKey)!;
+    this.pairVerify.accessoryPublicKey = tlv.get(Types.kTLVType_PublicKey)!;
 
-      this.pairVerify.sharedSecret = Buffer.from(
-        sodium.crypto_scalarmult(this.pairVerify.privateKey!, this.pairVerify.accessoryPublicKey)
+    this.pairVerify.sharedSecret = Buffer.from(
+      sodium.crypto_scalarmult(this.pairVerify.privateKey!, this.pairVerify.accessoryPublicKey)
+    );
+
+    const hkdf1 = new HKDF('sha512', 'Pair-Verify-Encrypt-Salt', this.pairVerify.sharedSecret);
+    this.pairVerify.sessionKey = hkdf1.derive('Pair-Verify-Encrypt-Info', 32);
+
+    const hkdf2 = new HKDF('sha512', 'Pair-Verify-Resume-Salt', this.pairVerify.sharedSecret!);
+    this.pairVerify.sessionID = hkdf2.derive('Pair-Verify-Resume-Info', 8);
+
+    let decryptedData;
+    try {
+      decryptedData = Buffer.from(
+        sodium.crypto_aead_chacha20poly1305_ietf_decrypt(
+          null,
+          tlv.get(Types.kTLVType_EncryptedData)!,
+          null,
+          Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PV-Msg02')]),
+          this.pairVerify.sessionKey!
+        )
       );
+    } catch (_e) {
+      throw new Error('M2: Decryption of sub-TLV failed');
+    }
 
-      new HKDF('sha512', 'Pair-Verify-Encrypt-Salt', this.pairVerify.sharedSecret).derive(
-        'Pair-Verify-Encrypt-Info',
-        32,
-        (sessionKey) => {
-          this.pairVerify.sessionKey = sessionKey;
+    const subTlv = decodeBuffer(decryptedData);
 
-          new HKDF('sha512', 'Pair-Verify-Resume-Salt', this.pairVerify.sharedSecret!).derive(
-            'Pair-Verify-Resume-Info',
-            8,
-            (sessionID) => {
-              this.pairVerify.sessionID = sessionID;
+    if (!subTlv.has(Types.kTLVType_Signature)) {
+      throw new Error('M2: Signature missing from sub-TLV');
+    }
 
-              let decryptedData;
-              try {
-                decryptedData = Buffer.from(
-                  sodium.crypto_aead_chacha20poly1305_ietf_decrypt(
-                    null,
-                    tlv.get(Types.kTLVType_EncryptedData)!,
-                    null,
-                    Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PV-Msg02')]),
-                    this.pairVerify.sessionKey!
-                  )
-                );
-              } catch (_e) {
-                reject('M2: Decryption of sub-TLV failed');
-                return;
-              }
+    if (!subTlv.has(Types.kTLVType_Identifier)) {
+      throw new Error('M2: Identifier missing from sub-TLV');
+    }
 
-              const subTlv = decodeBuffer(decryptedData);
+    const AccessoryPairingID = subTlv.get(Types.kTLVType_Identifier)!.toString();
+    if (AccessoryPairingID !== this.AccessoryPairingID?.toString()) {
+      throw new Error('M2: Wrong accessory pairing ID');
+    }
 
-              if (!subTlv.has(Types.kTLVType_Signature)) {
-                reject('M2: Signature missing from sub-TLV');
-                return;
-              }
+    const AccessoryInfo = Buffer.concat([
+      this.pairVerify.accessoryPublicKey!,
+      this.AccessoryPairingID,
+      Buffer.from(sodium.crypto_scalarmult_base(this.pairVerify.privateKey!)),
+    ]);
 
-              if (!subTlv.has(Types.kTLVType_Identifier)) {
-                reject('M2: Identifier missing from sub-TLV');
-                return;
-              }
-
-              const AccessoryPairingID = subTlv.get(Types.kTLVType_Identifier)!.toString();
-              if (AccessoryPairingID !== this.AccessoryPairingID?.toString()) {
-                reject('M2: Wrong accessory pairing ID');
-                return;
-              }
-
-              const AccessoryInfo = Buffer.concat([
-                this.pairVerify.accessoryPublicKey!,
-                this.AccessoryPairingID,
-                Buffer.from(sodium.crypto_scalarmult_base(this.pairVerify.privateKey!)),
-              ]);
-
-              const signature = subTlv.get(Types.kTLVType_Signature)!;
-              if (
-                sodium.crypto_sign_verify_detached(signature, AccessoryInfo, this.AccessoryLTPK!)
-              ) {
-                resolve(subTlv);
-              } else {
-                reject('M2: Signature verification failed');
-              }
-            }
-          );
-        }
-      );
-    });
+    const signature = subTlv.get(Types.kTLVType_Signature)!;
+    if (sodium.crypto_sign_verify_detached(signature, AccessoryInfo, this.AccessoryLTPK!)) {
+      return subTlv;
+    } else {
+      throw new Error('M2: Signature verification failed');
+    }
   }
 
   /**
@@ -750,33 +686,26 @@ export default class PairingProtocol {
   /**
    * Get the session keys generated by the PairVerify process.
    *
-   * @returns {Promise} Promise which resolves to an object:
+   * @returns {Object}
    *   {
    *     AccessoryToControllerKey: {Buffer},
    *     ControllerToAccessoryKey: {Buffer},
    *   }
    */
-  getSessionKeys(): Promise<SessionKeys> {
+  getSessionKeys(): SessionKeys {
     if (!this.pairVerify.sharedSecret) {
       throw new Error('Shared secret not yet set');
     }
 
-    return new Promise((resolve) => {
-      const salt = new HKDF('sha512', 'Control-Salt', this.pairVerify.sharedSecret!);
+    const salt = new HKDF('sha512', 'Control-Salt', this.pairVerify.sharedSecret!);
 
-      salt.derive('Control-Write-Encryption-Key', 32, (key) => {
-        this.sessionKeys.controllerToAccessoryKey = key;
+    this.sessionKeys.controllerToAccessoryKey = salt.derive('Control-Write-Encryption-Key', 32);
+    this.sessionKeys.accessoryToControllerKey = salt.derive('Control-Read-Encryption-Key', 32);
 
-        salt.derive('Control-Read-Encryption-Key', 32, (key) => {
-          this.sessionKeys.accessoryToControllerKey = key;
-
-          resolve({
-            AccessoryToControllerKey: this.sessionKeys.accessoryToControllerKey!,
-            ControllerToAccessoryKey: this.sessionKeys.controllerToAccessoryKey!,
-          });
-        });
-      });
-    });
+    return {
+      AccessoryToControllerKey: this.sessionKeys.accessoryToControllerKey!,
+      ControllerToAccessoryKey: this.sessionKeys.controllerToAccessoryKey!,
+    };
   }
 
   /**
@@ -925,44 +854,42 @@ export default class PairingProtocol {
 
     await sodium.ready;
 
-    return new Promise((resolve, reject) => {
-      if (!this.pairVerify.sessionID) {
-        reject('M1: Session ID not yet set');
-        return;
-      }
+    if (!this.pairVerify.sessionID) {
+      throw new Error('M1: Session ID not yet set');
+    }
 
-      this.pairVerify.privateKey = Buffer.from(sodium.randombytes_buf(32));
+    this.pairVerify.privateKey = Buffer.from(sodium.randombytes_buf(32));
 
-      this.pairVerify.publicKey = Buffer.from(
-        sodium.crypto_scalarmult_base(this.pairVerify.privateKey)
-      );
+    this.pairVerify.publicKey = Buffer.from(
+      sodium.crypto_scalarmult_base(this.pairVerify.privateKey)
+    );
 
-      new HKDF(
-        'sha512',
-        Buffer.concat([this.pairVerify.publicKey, this.pairVerify.sessionID!]),
-        this.pairVerify.sharedSecret!
-      ).derive('Pair-Resume-Request-Info', 32, (requestKey) => {
-        const encryptedData = Buffer.from(
-          sodium.crypto_aead_chacha20poly1305_ietf_encrypt(
-            Buffer.alloc(0),
-            null,
-            null,
-            Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PR-Msg01')]),
-            requestKey
-          )
-        );
+    const hkdf = new HKDF(
+      'sha512',
+      Buffer.concat([this.pairVerify.publicKey, this.pairVerify.sessionID!]),
+      this.pairVerify.sharedSecret!
+    );
 
-        const data = new Map();
-        data.set(Types.kTLVType_State, Buffer.from([Steps.M1]));
-        data.set(Types.kTLVType_Method, Buffer.from([Methods.PairResume]));
-        data.set(Types.kTLVType_PublicKey, this.pairVerify.publicKey);
-        data.set(Types.kTLVType_SessionID, this.pairVerify.sessionID);
-        data.set(Types.kTLVType_EncryptedData, encryptedData);
-        const packet = encodeObject(data);
+    const requestKey = hkdf.derive('Pair-Resume-Request-Info', 32);
+    const encryptedData = Buffer.from(
+      sodium.crypto_aead_chacha20poly1305_ietf_encrypt(
+        Buffer.alloc(0),
+        null,
+        null,
+        Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PR-Msg01')]),
+        requestKey
+      )
+    );
 
-        resolve(packet);
-      });
-    });
+    const data = new Map();
+    data.set(Types.kTLVType_State, Buffer.from([Steps.M1]));
+    data.set(Types.kTLVType_Method, Buffer.from([Methods.PairResume]));
+    data.set(Types.kTLVType_PublicKey, this.pairVerify.publicKey);
+    data.set(Types.kTLVType_SessionID, this.pairVerify.sessionID);
+    data.set(Types.kTLVType_EncryptedData, encryptedData);
+    const packet = encodeObject(data);
+
+    return packet;
   }
 
   /**
@@ -974,79 +901,70 @@ export default class PairingProtocol {
   async parsePairResumeM2(m2Buffer: Buffer): Promise<TLV> {
     await sodium.ready;
 
-    return new Promise((resolve, reject) => {
-      if (!this.pairVerify.publicKey) {
-        reject('M2: Public key not yet set');
-        return;
-      }
+    if (!this.pairVerify.publicKey) {
+      throw new Error('M2: Public key not yet set');
+    }
 
-      if (!this.pairVerify.sharedSecret) {
-        throw new Error('M2: Shared secret not yet set');
-      }
+    if (!this.pairVerify.sharedSecret) {
+      throw new Error('M2: Shared secret not yet set');
+    }
 
-      const tlv = decodeBuffer(m2Buffer);
+    const tlv = decodeBuffer(m2Buffer);
 
-      if (!tlv || tlv.size === 0) {
-        reject('M2: Empty TLV');
-        return;
-      }
+    if (!tlv || tlv.size === 0) {
+      throw new Error('M2: Empty TLV');
+    }
 
-      if (tlv.has(Types.kTLVType_Error)) {
-        reject(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
-        return;
-      }
+    if (tlv.has(Types.kTLVType_Error)) {
+      throw new Error(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+    }
 
-      if (!tlv.has(Types.kTLVType_State)) {
-        reject('M2: Missing state');
-        return;
-      }
+    if (!tlv.has(Types.kTLVType_State)) {
+      throw new Error('M2: Missing state');
+    }
 
-      const state = tlv.get(Types.kTLVType_State)![0];
-      if (state !== Steps.M2) {
-        reject(`M2: Invalid state: ${state}`);
-        return;
-      }
+    const state = tlv.get(Types.kTLVType_State)![0];
+    if (state !== Steps.M2) {
+      throw new Error(`M2: Invalid state: ${state}`);
+    }
 
-      if (!tlv.has(Types.kTLVType_SessionID)) {
-        reject('M2: Session ID missing from TLV');
-        return;
-      }
+    if (!tlv.has(Types.kTLVType_SessionID)) {
+      throw new Error('M2: Session ID missing from TLV');
+    }
 
-      if (!tlv.has(Types.kTLVType_EncryptedData)) {
-        reject('M2: Encrypted data missing from TLV');
-        return;
-      }
+    if (!tlv.has(Types.kTLVType_EncryptedData)) {
+      throw new Error('M2: Encrypted data missing from TLV');
+    }
 
-      this.pairVerify.sessionID = tlv.get(Types.kTLVType_SessionID)!;
+    this.pairVerify.sessionID = tlv.get(Types.kTLVType_SessionID)!;
 
-      new HKDF(
-        'sha512',
-        Buffer.concat([this.pairVerify.publicKey, this.pairVerify.sessionID]),
-        this.pairVerify.sharedSecret!
-      ).derive('Pair-Resume-Response-Info', 32, (responseKey) => {
-        try {
-          sodium.crypto_aead_chacha20poly1305_ietf_decrypt(
-            null,
-            tlv.get(Types.kTLVType_EncryptedData)!,
-            null,
-            Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PR-Msg02')]),
-            responseKey
-          );
-        } catch (_e) {
-          reject('M2: Decryption of data failed');
-          return;
-        }
+    const hkdf1 = new HKDF(
+      'sha512',
+      Buffer.concat([this.pairVerify.publicKey, this.pairVerify.sessionID]),
+      this.pairVerify.sharedSecret!
+    );
+    const responseKey = hkdf1.derive('Pair-Resume-Response-Info', 32);
 
-        new HKDF(
-          'sha512',
-          Buffer.concat([this.pairVerify.publicKey!, this.pairVerify.sessionID!]),
-          this.pairVerify.sharedSecret!
-        ).derive('Pair-Resume-Shared-Secret-Info', 32, (sharedSecret) => {
-          this.pairVerify.sharedSecret = sharedSecret;
-          resolve(tlv);
-        });
-      });
-    });
+    try {
+      sodium.crypto_aead_chacha20poly1305_ietf_decrypt(
+        null,
+        tlv.get(Types.kTLVType_EncryptedData)!,
+        null,
+        Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PR-Msg02')]),
+        responseKey
+      );
+    } catch (_e) {
+      throw new Error('M2: Decryption of data failed');
+    }
+
+    const hkdf2 = new HKDF(
+      'sha512',
+      Buffer.concat([this.pairVerify.publicKey!, this.pairVerify.sessionID!]),
+      this.pairVerify.sharedSecret!
+    );
+    this.pairVerify.sharedSecret = hkdf2.derive('Pair-Resume-Shared-Secret-Info', 32);
+
+    return tlv;
   }
 
   /**
