@@ -1,10 +1,16 @@
-'use strict';
+import * as GattConstants from './gatt-constants';
+import { decodeBuffer, encodeObject, TLV } from '../../model/tlv';
 
-const GattConstants = require('./gatt-constants');
-const TLV = require('../../model/tlv');
+export interface GattResponse {
+  controlField: number;
+  tid: number;
+  status: number;
+  length?: number;
+  tlv?: TLV;
+}
 
-class BLEProtocol {
-  buildCharacteristicSignatureReadRequest(tid, iid) {
+export default class BLEProtocol {
+  buildCharacteristicSignatureReadRequest(tid: number, iid: number): Buffer {
     const buf = Buffer.alloc(5);
     buf.writeUInt8(GattConstants.Opcodes['HAP-Characteristic-Signature-Read'], 1);
     buf.writeUInt8(tid, 2);
@@ -12,22 +18,22 @@ class BLEProtocol {
     return buf;
   }
 
-  parseCharacteristicSignatureReadResponse(buf) {
+  parseCharacteristicSignatureReadResponse(buf: Buffer): GattResponse {
     return {
       controlField: buf.readUInt8(0),
       tid: buf.readUInt8(1),
       status: buf.readUInt8(2),
       length: buf.readUInt16LE(3),
-      tlv: TLV.decodeBuffer(buf.slice(5, buf.length)),
+      tlv: decodeBuffer(buf.slice(5, buf.length)),
     };
   }
 
-  buildCharacteristicWriteRequest(tid, iid, tlv) {
+  buildCharacteristicWriteRequest(tid: number, iid: number, tlv: TLV): Buffer {
     let body;
     if (Buffer.isBuffer(tlv)) {
       body = tlv;
     } else {
-      body = TLV.encodeObject(tlv);
+      body = encodeObject(tlv);
     }
 
     const buf = Buffer.alloc(7 + body.length);
@@ -39,7 +45,7 @@ class BLEProtocol {
     return buf;
   }
 
-  parseCharacteristicWriteResponse(buf) {
+  parseCharacteristicWriteResponse(buf: Buffer): GattResponse {
     return {
       controlField: buf.readUInt8(0),
       tid: buf.readUInt8(1),
@@ -47,7 +53,7 @@ class BLEProtocol {
     };
   }
 
-  buildCharacteristicReadRequest(tid, iid) {
+  buildCharacteristicReadRequest(tid: number, iid: number): Buffer {
     const buf = Buffer.alloc(5);
     buf.writeUInt8(GattConstants.Opcodes['HAP-Characteristic-Read'], 1);
     buf.writeUInt8(tid, 2);
@@ -55,18 +61,18 @@ class BLEProtocol {
     return buf;
   }
 
-  parseCharacteristicReadResponse(buf) {
+  parseCharacteristicReadResponse(buf: Buffer): GattResponse {
     return {
       controlField: buf.readUInt8(0),
       tid: buf.readUInt8(1),
       status: buf.readUInt8(2),
       length: buf.readUInt16LE(3),
-      tlv: TLV.decodeBuffer(buf.slice(5, buf.length)),
+      tlv: decodeBuffer(buf.slice(5, buf.length)),
     };
   }
 
-  buildCharacteristicTimedWriteRequest(tid, iid, tlv) {
-    const body = TLV.encodeObject(tlv);
+  buildCharacteristicTimedWriteRequest(tid: number, iid: number, tlv: TLV): Buffer {
+    const body = encodeObject(tlv);
 
     const buf = Buffer.alloc(7 + body.length);
     buf.writeUInt8(GattConstants.Opcodes['HAP-Characteristic-Timed-Write'], 1);
@@ -77,7 +83,7 @@ class BLEProtocol {
     return buf;
   }
 
-  parseCharacteristicTimedWriteResponse(buf) {
+  parseCharacteristicTimedWriteResponse(buf: Buffer): GattResponse {
     return {
       controlField: buf.readUInt8(0),
       tid: buf.readUInt8(1),
@@ -85,7 +91,7 @@ class BLEProtocol {
     };
   }
 
-  buildCharacteristicExecuteWriteRequest(tid, iid) {
+  buildCharacteristicExecuteWriteRequest(tid: number, iid: number): Buffer {
     const buf = Buffer.alloc(5);
     buf.writeUInt8(GattConstants.Opcodes['HAP-Characteristic-Execute-Write'], 1);
     buf.writeUInt8(tid, 2);
@@ -93,7 +99,7 @@ class BLEProtocol {
     return buf;
   }
 
-  parseCharacteristicExecuteWriteResponse(buf) {
+  parseCharacteristicExecuteWriteResponse(buf: Buffer): GattResponse {
     return {
       controlField: buf.readUInt8(0),
       tid: buf.readUInt8(1),
@@ -101,7 +107,7 @@ class BLEProtocol {
     };
   }
 
-  buildServiceSignatureReadRequest(tid, sid) {
+  buildServiceSignatureReadRequest(tid: number, sid: number): Buffer {
     const buf = Buffer.alloc(5);
     buf.writeUInt8(GattConstants.Opcodes['HAP-Service-Signature-Read'], 1);
     buf.writeUInt8(tid, 2);
@@ -109,15 +115,13 @@ class BLEProtocol {
     return buf;
   }
 
-  parseServiceSignatureReadResponse(buf) {
+  parseServiceSignatureReadResponse(buf: Buffer): GattResponse {
     return {
       controlField: buf.readUInt8(0),
       tid: buf.readUInt8(1),
       status: buf.readUInt8(2),
       length: buf.readUInt16LE(3),
-      tlv: TLV.decodeBuffer(buf.slice(5, buf.length)),
+      tlv: decodeBuffer(buf.slice(5, buf.length)),
     };
   }
 }
-
-module.exports = BLEProtocol;

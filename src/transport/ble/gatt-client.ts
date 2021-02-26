@@ -1,19 +1,86 @@
 /**
  * Controller class for interacting with a HAP device over GATT.
  */
-'use strict';
 
-const Characteristic = require('../../model/characteristic');
-const EventEmitter = require('events');
-const GattConnection = require('./gatt-connection');
-const GattConstants = require('./gatt-constants');
-const GattProtocol = require('./gatt-protocol');
-const GattUtils = require('./gatt-utils');
-const PairingProtocol = require('../../protocol/pairing-protocol');
-const Service = require('../../model/service');
-const TLV = require('../../model/tlv');
+import * as Characteristic from '../../model/characteristic';
+import { EventEmitter } from 'events';
+import GattConnection from './gatt-connection';
+import * as GattConstants from './gatt-constants';
+import GattProtocol from './gatt-protocol';
+import * as GattUtils from './gatt-utils';
+import PairingProtocol, { PairingData } from '../../protocol/pairing-protocol';
+import * as Service from '../../model/service';
+import { decodeBuffer, TLV } from '../../model/tlv';
+import {
+  Characteristic as NobleCharacteristic,
+  Descriptor as NobleDescriptor,
+  Peripheral as NoblePeripheral,
+} from '@abandonware/noble';
 
-class GattClient extends EventEmitter {
+export interface GetCharacteristicsOptions {
+  meta?: boolean;
+  perms?: boolean;
+  type?: boolean;
+  ev?: boolean;
+  extra?: boolean;
+}
+
+export interface CharacteristicObject {
+  serviceUuid?: string; // added for convenience
+  aid: number; // added for convenience
+  iid: number;
+  type?: string;
+  value?: unknown;
+  perms?: string[];
+  ev?: boolean;
+  description?: string;
+  format?: string;
+  unit?: string;
+  minValue?: number;
+  maxValue?: number;
+  minStep?: number;
+  maxLen?: number;
+  maxDataLen?: number;
+  'valid-values'?: number[];
+  'valid-values-range'?: number[];
+  TTL?: number;
+  pid?: number;
+}
+
+export interface Accessories {
+  accessories: {
+    aid: number;
+    services: {
+      iid: number;
+      type: string;
+      characteristics: {
+        type: string;
+        ev: boolean;
+        perms: string[];
+        format: string;
+        iid?: number;
+      }[];
+      primary?: boolean;
+      hidden?: boolean;
+    }[];
+  }[];
+}
+
+export default class GattClient extends EventEmitter {
+  deviceId: string;
+
+  private peripheral: NoblePeripheral;
+
+  private pairingProtocol: PairingProtocol;
+
+  private gattProtocol: GattProtocol;
+
+  private tid: number;
+
+  private queue: GattUtils.OpQueue;
+
+  private _pairingConnection?: GattConnection;
+
   /**
    * Initialize the GattClient object.
    *
@@ -21,7 +88,7 @@ class GattClient extends EventEmitter {
    * @param {Object} peripheral - Peripheral object from noble
    * @param {Object?} pairingData - existing pairing data
    */
-  constructor(deviceId, peripheral, pairingData) {
+  constructor(deviceId: string, peripheral: NoblePeripheral, pairingData?: PairingData) {
     super();
     this.deviceId = deviceId;
     this.peripheral = peripheral;
@@ -37,7 +104,7 @@ class GattClient extends EventEmitter {
    * @param {function} op - Function to add to the queue
    * @returns {Promise} Promise which resolves when the function is called.
    */
-  _queueOperation(op) {
+  _queueOperation(op: () => Promise<unknown>): Promise<unknown> {
     return this.queue.queue(op);
   }
 
@@ -46,7 +113,7 @@ class GattClient extends EventEmitter {
    *
    * @returns {number} Transaction ID.
    */
-  getNextTransactionId() {
+  getNextTransactionId(): number {
     this.tid++;
 
     if (this.tid > 255) {
@@ -61,7 +128,7 @@ class GattClient extends EventEmitter {
    *
    * @returns {Object} Object containing the keys that should be stored.
    */
-  getLongTermData() {
+  getLongTermData(): PairingData | null {
     return this.pairingProtocol.getLongTermData();
   }
 
@@ -70,7 +137,7 @@ class GattClient extends EventEmitter {
    *
    * @returns {Promise} Promise which resolves if identify succeeded.
    */
-  identify() {
+  identify(): Promise<void> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.accessory-information')
     );
@@ -78,17 +145,17 @@ class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.identify')
     );
 
-    return this._queueOperation(() => {
+    return <Promise<void>>this._queueOperation(() => {
       const connection = new GattConnection(this.peripheral);
       return connection
         .connect()
         .then(() => {
-          return new Promise((resolve, reject) => {
+          return new Promise<NobleCharacteristic>((resolve, reject) => {
             const watcher = new GattUtils.Watcher(this.peripheral, reject);
             this.peripheral.discoverSomeServicesAndCharacteristics(
               [serviceUuid],
               [characteristicUuid],
-              (err, services, characteristics) => {
+              (err, _services, characteristics) => {
                 watcher.stop();
                 if (watcher.rejected) {
                   return;
@@ -127,25 +194,27 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('No response from identify routine');
+            throw new Error('No response from identify routine');
           }
 
           const status = pdus[0].readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`Identify returned error status: ${status}`);
+            throw new Error(`Identify returned error status: ${status}`);
           }
-        })
-        .then(() => {
+
           return connection
             .disconnect()
             .then(() => Promise.resolve())
             .catch(() => Promise.resolve());
         })
         .catch((err) => {
-          return connection
-            .disconnect()
-            .catch(() => {})
-            .then(() => Promise.reject(err));
+          return (
+            connection
+              .disconnect()
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              .catch(() => {})
+              .then(() => Promise.reject(err))
+          );
         });
     });
   }
@@ -157,7 +226,7 @@ class GattClient extends EventEmitter {
    * @param {Object} characteristic - The characteristic to read from
    * @returns {Promise} Promise which resolves to the IID.
    */
-  _readInstanceId(characteristic) {
+  _readInstanceId(characteristic: NobleCharacteristic): Promise<number> {
     const characteristicInstanceIdUuid = GattUtils.uuidToNobleUuid(
       GattConstants.CharacteristicInstanceIdUuid
     );
@@ -166,7 +235,7 @@ class GattClient extends EventEmitter {
       GattConstants.CharacteristicInstanceIdShortUuid
     );
 
-    return new Promise((resolve, reject) => {
+    return new Promise<NobleDescriptor>((resolve, reject) => {
       const watcher = new GattUtils.Watcher(this.peripheral, reject);
       characteristic.discoverDescriptors((err, descriptors) => {
         watcher.stop();
@@ -219,7 +288,7 @@ class GattClient extends EventEmitter {
    * @returns {Promise} Promise which resolves to opaque
    * pairing data when complete.
    */
-  async startPairing() {
+  async startPairing(): Promise<{ tlv: TLV; iid: number; characteristic: NobleCharacteristic }> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -227,113 +296,127 @@ class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-setup')
     );
 
-    return this._queueOperation(() => {
-      let characteristic, iid;
-      const connection = (this._pairingConnection = new GattConnection(this.peripheral));
-      return connection
-        .connect()
-        .then(() => {
-          return new Promise((resolve, reject) => {
-            const watcher = new GattUtils.Watcher(this.peripheral, reject);
-            this.peripheral.discoverSomeServicesAndCharacteristics(
-              [serviceUuid],
-              [characteristicUuid],
-              (err, services, characteristics) => {
-                watcher.stop();
-                if (watcher.rejected) {
-                  return;
-                }
+    return <Promise<{ tlv: TLV; iid: number; characteristic: NobleCharacteristic }>>(
+      this._queueOperation(() => {
+        let characteristic: NobleCharacteristic, iid: number;
+        const connection = (this._pairingConnection = new GattConnection(this.peripheral));
+        return connection
+          .connect()
+          .then(() => {
+            return new Promise<number>((resolve, reject) => {
+              const watcher = new GattUtils.Watcher(this.peripheral, reject);
+              this.peripheral.discoverSomeServicesAndCharacteristics(
+                [serviceUuid],
+                [characteristicUuid],
+                (err, _services, characteristics) => {
+                  watcher.stop();
+                  if (watcher.rejected) {
+                    return;
+                  }
 
-                if (err) {
-                  reject(err);
-                  return;
-                }
+                  if (err) {
+                    reject(err);
+                    return;
+                  }
 
-                if (characteristics.length === 0) {
-                  reject('pair-setup characteristic not found');
-                  return;
-                }
+                  if (characteristics.length === 0) {
+                    reject('pair-setup characteristic not found');
+                    return;
+                  }
 
-                characteristic = characteristics[0];
-                resolve(this._readInstanceId(characteristic));
-              }
+                  characteristic = characteristics[0];
+                  resolve(this._readInstanceId(characteristic));
+                }
+              );
+            });
+          })
+          .then((instanceId) => {
+            iid = instanceId;
+            return this.pairingProtocol.buildPairSetupM1();
+          })
+          .then((packet) => {
+            const data = new Map();
+            data.set(GattConstants.Types['HAP-Param-Value'], packet);
+            data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
+            const pdu = this.gattProtocol.buildCharacteristicWriteRequest(
+              this.getNextTransactionId(),
+              iid,
+              data
             );
+            return connection.writeCharacteristic(characteristic, [pdu]);
+          })
+          .then((pdus) => {
+            if (pdus.length === 0) {
+              throw new Error('M1: No response');
+            }
+
+            const response = pdus[0];
+            const status = response.readUInt8(2);
+            if (status !== 0) {
+              throw new Error(`M1: Got error status: ${status}`);
+            }
+
+            if (response.length >= 5) {
+              // If a body was included, skip the read request.
+              return Promise.resolve(pdus);
+            }
+
+            const pdu = this.gattProtocol.buildCharacteristicReadRequest(
+              this.getNextTransactionId(),
+              iid
+            );
+            return connection.writeCharacteristic(characteristic, [pdu]);
+          })
+          .then((pdus) => {
+            if (pdus.length === 0) {
+              throw new Error('M2: No response');
+            }
+
+            const response = pdus[0];
+            const status = response.readUInt8(2);
+            if (status !== 0) {
+              throw new Error(`M2: Got error status: ${status}`);
+            }
+
+            const body = decodeBuffer(response.slice(5, response.length));
+
+            if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+              throw new Error('M2: HAP-Param-Value missing');
+            }
+
+            return this.pairingProtocol.parsePairSetupM2(
+              body.get(GattConstants.Types['HAP-Param-Value'])!
+            );
+          })
+          .then((tlv) => {
+            return { tlv, iid, characteristic };
           });
-        })
-        .then((instanceId) => {
-          iid = instanceId;
-          return this.pairingProtocol.buildPairSetupM1();
-        })
-        .then((packet) => {
-          const data = new Map();
-          data.set(GattConstants.Types['HAP-Param-Value'], packet);
-          data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
-          const pdu = this.gattProtocol.buildCharacteristicWriteRequest(
-            this.getNextTransactionId(),
-            iid,
-            data
-          );
-          return connection.writeCharacteristic(characteristic, [pdu]);
-        })
-        .then((pdus) => {
-          if (pdus.length === 0) {
-            return Promise.reject('M1: No response');
-          }
-
-          const response = pdus[0];
-          const status = response.readUInt8(2);
-          if (status !== 0) {
-            return Promise.reject(`M1: Got error status: ${status}`);
-          }
-
-          if (response.length >= 5) {
-            // If a body was included, skip the read request.
-            return Promise.resolve(pdus);
-          }
-
-          const pdu = this.gattProtocol.buildCharacteristicReadRequest(
-            this.getNextTransactionId(),
-            iid
-          );
-          return connection.writeCharacteristic(characteristic, [pdu]);
-        })
-        .then((pdus) => {
-          if (pdus.length === 0) {
-            return Promise.reject('M2: No response');
-          }
-
-          const response = pdus[0];
-          const status = response.readUInt8(2);
-          if (status !== 0) {
-            return Promise.reject(`M2: Got error status: ${status}`);
-          }
-
-          const body = TLV.decodeBuffer(response.slice(5, response.length));
-          return this.pairingProtocol.parsePairSetupM2(
-            body.get(GattConstants.Types['HAP-Param-Value'])
-          );
-        })
-        .then((tlv) => {
-          return { tlv, iid, characteristic };
-        });
-    });
+      })
+    );
   }
 
   /**
    * Finishes a pairing process that began with startPairing()
    *
    * @param {Object} pairingData - The pairing data returned from startPairing()
-   * @returns {Promise} Promise which resolvew when pairing is complete.
+   * @returns {Promise} Promise which resolves when pairing is complete.
    */
-  async finishPairing(pairingData, pin) {
+  async finishPairing(
+    pairingData: { tlv: TLV; iid: number; characteristic: NobleCharacteristic },
+    pin: string
+  ): Promise<void> {
     const { tlv, iid, characteristic } = pairingData;
     const re = /^\d{3}-\d{2}-\d{3}$/;
     if (!re.test(pin)) {
-      return Promise.reject('Invalid PIN');
+      throw new Error('Invalid PIN');
     }
 
-    return this._queueOperation(() => {
-      const connection = this._pairingConnection;
+    if (!this._pairingConnection) {
+      throw new Error('No pairing connection');
+    }
+
+    return <Promise<void>>this._queueOperation(() => {
+      const connection = this._pairingConnection!;
       const protocol = this.pairingProtocol;
       return protocol
         .buildPairSetupM3(tlv, pin)
@@ -350,13 +433,13 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M3: No response');
+            throw new Error('M3: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M3: Got error status: ${status}`);
+            throw new Error(`M3: Got error status: ${status}`);
           }
 
           if (response.length >= 5) {
@@ -372,21 +455,26 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M4: No response');
+            throw new Error('M4: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M4: Got error status: ${status}`);
+            throw new Error(`M4: Got error status: ${status}`);
           }
 
           const buffers = [pdus[0].slice(5, pdus[0].length)];
           pdus.slice(1).map((p) => buffers.push(p.slice(2, p.length)));
 
-          const body = TLV.decodeBuffer(Buffer.concat(buffers));
+          const body = decodeBuffer(Buffer.concat(buffers));
+
+          if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+            throw new Error('M4: HAP-Param-Value missing');
+          }
+
           return this.pairingProtocol.parsePairSetupM4(
-            body.get(GattConstants.Types['HAP-Param-Value'])
+            body.get(GattConstants.Types['HAP-Param-Value'])!
           );
         })
         .then(() => {
@@ -405,13 +493,13 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M5: No response');
+            throw new Error('M5: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M5: Got error status: ${status}`);
+            throw new Error(`M5: Got error status: ${status}`);
           }
 
           if (response.length >= 5) {
@@ -427,18 +515,23 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M6: No response');
+            throw new Error('M6: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M6: Got error status: ${status}`);
+            throw new Error(`M6: Got error status: ${status}`);
           }
 
-          const body = TLV.decodeBuffer(response.slice(5, response.length));
+          const body = decodeBuffer(response.slice(5, response.length));
+
+          if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+            throw new Error('M6: HAP-Param-Value missing');
+          }
+
           return this.pairingProtocol.parsePairSetupM6(
-            body.get(GattConstants.Types['HAP-Param-Value'])
+            body.get(GattConstants.Types['HAP-Param-Value'])!
           );
         })
         .then(() => {
@@ -448,10 +541,13 @@ class GattClient extends EventEmitter {
             .catch(() => Promise.resolve());
         })
         .catch((err) => {
-          return connection
-            .disconnect()
-            .catch(() => {})
-            .then(() => Promise.reject(err));
+          return (
+            connection
+              .disconnect()
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              .catch(() => {})
+              .then(() => Promise.reject(err))
+          );
         });
     });
   }
@@ -462,7 +558,7 @@ class GattClient extends EventEmitter {
    * @param {string} pin - The pairing PIN
    * @returns {Promise} Promise which resolves when pairing is complete.
    */
-  async pairSetup(pin) {
+  async pairSetup(pin: string): Promise<void> {
     return this.finishPairing(await this.startPairing(), pin);
   }
 
@@ -470,9 +566,9 @@ class GattClient extends EventEmitter {
    * Method used internally to generate session keys for a connection.
    *
    * @param {Object} connection - Existing GattConnection object
-   * @returns {Promise} Promise which resolves to the generated session keys.
+   * @returns {Promise} Promise which resolves when the pairing has been verified.
    */
-  _pairVerify(connection) {
+  _pairVerify(connection: GattConnection): Promise<void> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -480,13 +576,13 @@ class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-verify')
     );
 
-    let characteristic, iid;
-    return new Promise((resolve, reject) => {
+    let characteristic: NobleCharacteristic, iid: number;
+    return new Promise<number>((resolve, reject) => {
       const watcher = new GattUtils.Watcher(this.peripheral, reject);
       this.peripheral.discoverSomeServicesAndCharacteristics(
         [serviceUuid],
         [characteristicUuid],
-        (err, services, characteristics) => {
+        (err, _services, characteristics) => {
           watcher.stop();
           if (watcher.rejected) {
             return;
@@ -526,13 +622,13 @@ class GattClient extends EventEmitter {
             })
             .then((pdus) => {
               if (pdus.length === 0) {
-                return Promise.reject('M1: No response');
+                throw new Error('M1: No response');
               }
 
               const response = pdus[0];
               const status = response.readUInt8(2);
               if (status !== 0) {
-                return Promise.reject(`M1: Got error status: ${status}`);
+                throw new Error(`M1: Got error status: ${status}`);
               }
 
               if (response.length >= 5) {
@@ -548,21 +644,26 @@ class GattClient extends EventEmitter {
             })
             .then((pdus) => {
               if (pdus.length === 0) {
-                return Promise.reject('M2: No response');
+                throw new Error('M2: No response');
               }
 
               const response = pdus[0];
               const status = response.readUInt8(2);
               if (status !== 0) {
-                return Promise.reject(`M2: Got error status: ${status}`);
+                throw new Error(`M2: Got error status: ${status}`);
               }
 
-              const body = TLV.decodeBuffer(response.slice(5, response.length));
+              const body = decodeBuffer(response.slice(5, response.length));
+
+              if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+                throw new Error('M2: HAP-Param-Value missing');
+              }
+
               return this.pairingProtocol
-                .parsePairResumeM2(body.get(GattConstants.Types['HAP-Param-Value']))
+                .parsePairResumeM2(body.get(GattConstants.Types['HAP-Param-Value'])!)
                 .catch(() => {
                   return this.pairingProtocol
-                    .parsePairVerifyM2(body.get(GattConstants.Types['HAP-Param-Value']))
+                    .parsePairVerifyM2(body.get(GattConstants.Types['HAP-Param-Value'])!)
                     .then(() => {
                       return this.pairingProtocol.buildPairVerifyM3();
                     })
@@ -579,13 +680,13 @@ class GattClient extends EventEmitter {
                     })
                     .then((pdus) => {
                       if (pdus.length === 0) {
-                        return Promise.reject('M3: No response');
+                        throw new Error('M3: No response');
                       }
 
                       const response = pdus[0];
                       const status = response.readUInt8(2);
                       if (status !== 0) {
-                        return Promise.reject(`M3: Got error status: ${status}`);
+                        throw new Error(`M3: Got error status: ${status}`);
                       }
 
                       if (response.length >= 5) {
@@ -601,18 +702,23 @@ class GattClient extends EventEmitter {
                     })
                     .then((pdus) => {
                       if (pdus.length === 0) {
-                        return Promise.reject('M4: No response');
+                        throw new Error('M4: No response');
                       }
 
                       const response = pdus[0];
                       const status = response.readUInt8(2);
                       if (status !== 0) {
-                        return Promise.reject(`M4: Got error status: ${status}`);
+                        throw new Error(`M4: Got error status: ${status}`);
                       }
 
-                      const body = TLV.decodeBuffer(response.slice(5, response.length));
+                      const body = decodeBuffer(response.slice(5, response.length));
+
+                      if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+                        throw new Error('M4: HAP-Param-Value missing');
+                      }
+
                       return this.pairingProtocol.parsePairVerifyM4(
-                        body.get(GattConstants.Types['HAP-Param-Value'])
+                        body.get(GattConstants.Types['HAP-Param-Value'])!
                       );
                     });
                 });
@@ -639,13 +745,13 @@ class GattClient extends EventEmitter {
             })
             .then((pdus) => {
               if (pdus.length === 0) {
-                return Promise.reject('M1: No response');
+                throw new Error('M1: No response');
               }
 
               const response = pdus[0];
               const status = response.readUInt8(2);
               if (status !== 0) {
-                return Promise.reject(`M1: Got error status: ${status}`);
+                throw new Error(`M1: Got error status: ${status}`);
               }
 
               if (response.length >= 5) {
@@ -661,18 +767,23 @@ class GattClient extends EventEmitter {
             })
             .then((pdus) => {
               if (pdus.length === 0) {
-                return Promise.reject('M2: No response');
+                throw new Error('M2: No response');
               }
 
               const response = pdus[0];
               const status = response.readUInt8(2);
               if (status !== 0) {
-                return Promise.reject(`M2: Got error status: ${status}`);
+                throw new Error(`M2: Got error status: ${status}`);
               }
 
-              const body = TLV.decodeBuffer(response.slice(5, response.length));
+              const body = decodeBuffer(response.slice(5, response.length));
+
+              if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+                throw new Error('M2: HAP-Param-Value missing');
+              }
+
               return this.pairingProtocol.parsePairVerifyM2(
-                body.get(GattConstants.Types['HAP-Param-Value'])
+                body.get(GattConstants.Types['HAP-Param-Value'])!
               );
             })
             .then(() => {
@@ -691,13 +802,13 @@ class GattClient extends EventEmitter {
             })
             .then((pdus) => {
               if (pdus.length === 0) {
-                return Promise.reject('M3: No response');
+                throw new Error('M3: No response');
               }
 
               const response = pdus[0];
               const status = response.readUInt8(2);
               if (status !== 0) {
-                return Promise.reject(`M3: Got error status: ${status}`);
+                throw new Error(`M3: Got error status: ${status}`);
               }
 
               if (response.length >= 5) {
@@ -713,18 +824,23 @@ class GattClient extends EventEmitter {
             })
             .then((pdus) => {
               if (pdus.length === 0) {
-                return Promise.reject('M4: No response');
+                throw new Error('M4: No response');
               }
 
               const response = pdus[0];
               const status = response.readUInt8(2);
               if (status !== 0) {
-                return Promise.reject(`M4: Got error status: ${status}`);
+                throw new Error(`M4: Got error status: ${status}`);
               }
 
-              const body = TLV.decodeBuffer(response.slice(5, response.length));
+              const body = decodeBuffer(response.slice(5, response.length));
+
+              if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+                throw new Error('M4: HAP-Param-Value missing');
+              }
+
               return this.pairingProtocol.parsePairVerifyM4(
-                body.get(GattConstants.Types['HAP-Param-Value'])
+                body.get(GattConstants.Types['HAP-Param-Value'])!
               );
             })
             .then(() => {
@@ -746,7 +862,7 @@ class GattClient extends EventEmitter {
    * @param {string} identifier - Identifier of the controller to remove
    * @returns {Promise} Promise which resolves when the process completes.
    */
-  removePairing(identifier) {
+  removePairing(identifier: string): Promise<void> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -754,8 +870,8 @@ class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
     );
 
-    return this._queueOperation(() => {
-      let characteristic, iid;
+    return <Promise<void>>this._queueOperation(() => {
+      let characteristic: NobleCharacteristic, iid: number;
 
       const connection = new GattConnection(this.peripheral);
       return connection
@@ -764,12 +880,12 @@ class GattClient extends EventEmitter {
           return this._pairVerify(connection);
         })
         .then(() => {
-          return new Promise((resolve, reject) => {
+          return new Promise<number>((resolve, reject) => {
             const watcher = new GattUtils.Watcher(this.peripheral, reject);
             this.peripheral.discoverSomeServicesAndCharacteristics(
               [serviceUuid],
               [characteristicUuid],
-              (err, services, characteristics) => {
+              (err, _services, characteristics) => {
                 watcher.stop();
                 if (watcher.rejected) {
                   return;
@@ -811,13 +927,13 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M1: No response');
+            throw new Error('M1: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M1: Got error status: ${status}`);
+            throw new Error(`M1: Got error status: ${status}`);
           }
 
           if (response.length >= 5) {
@@ -833,18 +949,23 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M2: No response');
+            throw new Error('M2: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M2: Got error status: ${status}`);
+            throw new Error(`M2: Got error status: ${status}`);
           }
 
-          const body = TLV.decodeBuffer(response.slice(5, response.length));
+          const body = decodeBuffer(response.slice(5, response.length));
+
+          if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+            throw new Error('M2: HAP-Param-Value missing');
+          }
+
           return this.pairingProtocol.parseRemovePairingM2(
-            body.get(GattConstants.Types['HAP-Param-Value'])
+            body.get(GattConstants.Types['HAP-Param-Value'])!
           );
         })
         .then(() => {
@@ -854,10 +975,13 @@ class GattClient extends EventEmitter {
             .catch(() => Promise.resolve());
         })
         .catch((err) => {
-          return connection
-            .disconnect()
-            .catch(() => {})
-            .then(() => Promise.reject(err));
+          return (
+            connection
+              .disconnect()
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              .catch(() => {})
+              .then(() => Promise.reject(err))
+          );
         });
     });
   }
@@ -870,7 +994,7 @@ class GattClient extends EventEmitter {
    * @param {boolean} isAdmin - Whether or not the new controller is an admin
    * @returns {Promise} Promise which resolves when the process is complete.
    */
-  addPairing(identifier, ltpk, isAdmin) {
+  addPairing(identifier: string, ltpk: Buffer, isAdmin: boolean): Promise<void> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -878,19 +1002,19 @@ class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
     );
 
-    return this._queueOperation(() => {
-      let characteristic, iid;
+    return <Promise<void>>this._queueOperation(() => {
+      let characteristic: NobleCharacteristic, iid: number;
 
       const connection = new GattConnection(this.peripheral);
       return connection
         .connect()
         .then(() => {
-          return new Promise((resolve, reject) => {
+          return new Promise<number>((resolve, reject) => {
             const watcher = new GattUtils.Watcher(this.peripheral, reject);
             this.peripheral.discoverSomeServicesAndCharacteristics(
               [serviceUuid],
               [characteristicUuid],
-              (err, services, characteristics) => {
+              (err, _services, characteristics) => {
                 watcher.stop();
                 if (watcher.rejected) {
                   return;
@@ -932,13 +1056,13 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M1: No response');
+            throw new Error('M1: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M1: Got error status: ${status}`);
+            throw new Error(`M1: Got error status: ${status}`);
           }
 
           if (response.length >= 5) {
@@ -954,18 +1078,23 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M2: No response');
+            throw new Error('M2: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M2: Got error status: ${status}`);
+            throw new Error(`M2: Got error status: ${status}`);
           }
 
-          const body = TLV.decodeBuffer(response.slice(5, response.length));
+          const body = decodeBuffer(response.slice(5, response.length));
+
+          if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+            throw new Error('M2: HAP-Param-Value missing');
+          }
+
           return this.pairingProtocol.parseAddPairingM2(
-            body.get(GattConstants.Types['HAP-Param-Value'])
+            body.get(GattConstants.Types['HAP-Param-Value'])!
           );
         })
         .then(() => {
@@ -975,10 +1104,13 @@ class GattClient extends EventEmitter {
             .catch(() => Promise.resolve());
         })
         .catch((err) => {
-          return connection
-            .disconnect()
-            .catch(() => {})
-            .then(() => Promise.reject(err));
+          return (
+            connection
+              .disconnect()
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              .catch(() => {})
+              .then(() => Promise.reject(err))
+          );
         });
     });
   }
@@ -989,7 +1121,7 @@ class GattClient extends EventEmitter {
    * @returns {Promise} Promise which resolves to the final TLV when the process
    *                    is complete.
    */
-  listPairings() {
+  listPairings(): Promise<TLV> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -997,19 +1129,19 @@ class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
     );
 
-    return this._queueOperation(() => {
-      let characteristic, iid;
+    return <Promise<TLV>>this._queueOperation(() => {
+      let characteristic: NobleCharacteristic, iid: number;
 
       const connection = new GattConnection(this.peripheral);
       return connection
         .connect()
         .then(() => {
-          return new Promise((resolve, reject) => {
+          return new Promise<number>((resolve, reject) => {
             const watcher = new GattUtils.Watcher(this.peripheral, reject);
             this.peripheral.discoverSomeServicesAndCharacteristics(
               [serviceUuid],
               [characteristicUuid],
-              (err, services, characteristics) => {
+              (err, _services, characteristics) => {
                 watcher.stop();
                 if (watcher.rejected) {
                   return;
@@ -1051,13 +1183,13 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M1: No response');
+            throw new Error('M1: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M1: Got error status: ${status}`);
+            throw new Error(`M1: Got error status: ${status}`);
           }
 
           if (response.length >= 5) {
@@ -1073,18 +1205,23 @@ class GattClient extends EventEmitter {
         })
         .then((pdus) => {
           if (pdus.length === 0) {
-            return Promise.reject('M2: No response');
+            throw new Error('M2: No response');
           }
 
           const response = pdus[0];
           const status = response.readUInt8(2);
           if (status !== 0) {
-            return Promise.reject(`M2: Got error status: ${status}`);
+            throw new Error(`M2: Got error status: ${status}`);
           }
 
-          const body = TLV.decodeBuffer(response.slice(5, response.length));
+          const body = decodeBuffer(response.slice(5, response.length));
+
+          if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+            throw new Error('M2: HAP-Param-Value missing');
+          }
+
           return this.pairingProtocol.parseListPairingsM2(
-            body.get(GattConstants.Types['HAP-Param-Value'])
+            body.get(GattConstants.Types['HAP-Param-Value'])!
           );
         })
         .then((tlv) => {
@@ -1094,10 +1231,13 @@ class GattClient extends EventEmitter {
             .catch(() => Promise.resolve(tlv));
         })
         .catch((err) => {
-          return connection
-            .disconnect()
-            .catch(() => {})
-            .then(() => Promise.reject(err));
+          return (
+            connection
+              .disconnect()
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              .catch(() => {})
+              .then(() => Promise.reject(err))
+          );
         });
     });
   }
@@ -1107,7 +1247,7 @@ class GattClient extends EventEmitter {
    *
    * @returns {Promise} Promise which resolves to the JSON document.
    */
-  getAccessories() {
+  getAccessories(): Promise<Accessories> {
     const pairingUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -1117,8 +1257,8 @@ class GattClient extends EventEmitter {
     const serviceInstanceIdUuid = GattUtils.uuidToNobleUuid(GattConstants.ServiceInstanceIdUuid);
     const serviceSignatureUuid = GattUtils.uuidToNobleUuid(GattConstants.ServiceSignatureUuid);
 
-    return this._queueOperation(() => {
-      const database = {
+    return <Promise<Accessories>>this._queueOperation(() => {
+      const database: Accessories = {
         accessories: [
           {
             aid: 1,
@@ -1127,7 +1267,7 @@ class GattClient extends EventEmitter {
         ],
       };
 
-      let allCharacteristics;
+      let allCharacteristics: NobleCharacteristic[];
 
       const connection = new GattConnection(this.peripheral);
       return connection
@@ -1165,8 +1305,8 @@ class GattClient extends EventEmitter {
                     continue;
                   }
 
-                  lastOp = queue.queue(() => {
-                    return new Promise((resolve, reject) => {
+                  lastOp = <Promise<void>>queue.queue(() => {
+                    return new Promise<void>((resolve, reject) => {
                       const watcher = new GattUtils.Watcher(this.peripheral, reject);
                       characteristic.read((err, data) => {
                         watcher.stop();
@@ -1212,12 +1352,14 @@ class GattClient extends EventEmitter {
           const queue = new GattUtils.OpQueue();
           let lastOp = Promise.resolve();
 
-          const characteristics = [];
+          const characteristics: { characteristic: NobleCharacteristic; iid: number }[] = [];
           for (const characteristic of allCharacteristics) {
-            lastOp = queue.queue(() => {
+            lastOp = <Promise<void>>queue.queue(() => {
               return this._readInstanceId(characteristic)
                 .then((iid) => {
-                  const serviceType = GattUtils.nobleUuidToUuid(characteristic._serviceUuid);
+                  const serviceType = GattUtils.nobleUuidToUuid(
+                    (<{ _serviceUuid: string }>(<unknown>characteristic))._serviceUuid
+                  );
                   const characteristicType = GattUtils.nobleUuidToUuid(characteristic.uuid);
 
                   for (const service of database.accessories[0].services) {
@@ -1249,7 +1391,9 @@ class GattClient extends EventEmitter {
           let lastOp = Promise.resolve();
 
           for (const c of characteristics) {
-            const serviceUuid = GattUtils.nobleUuidToUuid(c.characteristic._serviceUuid);
+            const serviceUuid = GattUtils.nobleUuidToUuid(
+              (<{ _serviceUuid: string }>(<unknown>c.characteristic))._serviceUuid
+            );
             const characteristicUuid = GattUtils.nobleUuidToUuid(c.characteristic.uuid);
 
             if (characteristicUuid === GattConstants.ServiceSignatureUuid) {
@@ -1258,14 +1402,14 @@ class GattClient extends EventEmitter {
                 c.iid
               );
 
-              lastOp = queue.queue(() => {
+              lastOp = <Promise<void>>queue.queue(() => {
                 return connection.writeCharacteristic(c.characteristic, [pdu]).then((pdus) => {
                   if (pdus.length === 0) {
                     return;
                   }
 
                   const response = pdus[0];
-                  const body = TLV.decodeBuffer(response.slice(5, response.length));
+                  const body = decodeBuffer(response.slice(5, response.length));
                   const value = body.get(GattConstants.Types['HAP-Param-Value']);
                   if (!value) {
                     return;
@@ -1295,13 +1439,16 @@ class GattClient extends EventEmitter {
         .then((characteristics) => {
           const toFetch = [];
           for (const c of characteristics) {
-            const serviceUuid = GattUtils.nobleUuidToUuid(c.characteristic._serviceUuid);
+            const serviceUuid = GattUtils.nobleUuidToUuid(
+              (<{ _serviceUuid: string }>(<unknown>c.characteristic))._serviceUuid
+            );
             const characteristicUuid = GattUtils.nobleUuidToUuid(c.characteristic.uuid);
 
             if (
               characteristicUuid !== GattConstants.ServiceSignatureUuid &&
-              c.characteristic._serviceUuid !== protocolInformationUuid &&
-              c.characteristic._serviceUuid !== pairingUuid
+              (<{ _serviceUuid: string }>(<unknown>c.characteristic))._serviceUuid !==
+                protocolInformationUuid &&
+              (<{ _serviceUuid: string }>(<unknown>c.characteristic))._serviceUuid !== pairingUuid
             ) {
               toFetch.push({
                 serviceUuid,
@@ -1355,10 +1502,13 @@ class GattClient extends EventEmitter {
             .catch(() => Promise.resolve(database));
         })
         .catch((err) => {
-          return connection
-            .disconnect()
-            .catch(() => {})
-            .then(() => Promise.reject(err));
+          return (
+            connection
+              .disconnect()
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              .catch(() => {})
+              .then(() => Promise.reject(err))
+          );
         });
     });
   }
@@ -1373,10 +1523,19 @@ class GattClient extends EventEmitter {
    *                  be paired and verified
    * @returns {Promise} Promise which resolves to the JSON document.
    */
-  getCharacteristics(characteristics, options = {}, connection = null) {
+  getCharacteristics(
+    characteristics: {
+      characteristicUuid: string;
+      serviceUuid: string;
+      iid: number;
+      format?: string;
+    }[],
+    options: GetCharacteristicsOptions = {},
+    connection: GattConnection | null = null
+  ): Promise<{ characteristics: CharacteristicObject[] }> {
     const skipQueue = connection !== null;
 
-    const fn = () => {
+    const fn = (): Promise<{ characteristics: CharacteristicObject[] }> => {
       options = Object.assign(
         {
           meta: false,
@@ -1388,7 +1547,7 @@ class GattClient extends EventEmitter {
         options
       );
 
-      const cList = [];
+      const cList: NobleCharacteristic[] = [];
 
       let promise;
       let needToClose = false;
@@ -1398,7 +1557,7 @@ class GattClient extends EventEmitter {
         needToClose = true;
         connection = new GattConnection(this.peripheral);
         promise = connection.connect().then(() => {
-          return this._pairVerify(connection);
+          return this._pairVerify(connection!);
         });
       }
 
@@ -1409,20 +1568,28 @@ class GattClient extends EventEmitter {
             c.serviceUuid = GattUtils.uuidToNobleUuid(c.serviceUuid);
           }
 
-          return new Promise((resolve, reject) => {
+          return new Promise<void>((resolve, reject) => {
             const watcher = new GattUtils.Watcher(this.peripheral, reject);
             this.peripheral.discoverSomeServicesAndCharacteristics(
               characteristics.map((c) => c.serviceUuid),
               characteristics.map((c) => c.characteristicUuid),
-              (err, discoveredServices, discoveredCharacteristics) => {
+              (err, _discoveredServices, discoveredCharacteristics) => {
                 watcher.stop();
                 if (watcher.rejected) {
                   return;
                 }
 
+                if (err) {
+                  reject(err);
+                  return;
+                }
+
                 for (const c of characteristics) {
                   const characteristic = discoveredCharacteristics.find((d) => {
-                    return d._serviceUuid === c.serviceUuid && d.uuid === c.characteristicUuid;
+                    return (
+                      (<{ _serviceUuid: string }>(<unknown>d))._serviceUuid === c.serviceUuid &&
+                      d.uuid === c.characteristicUuid
+                    );
                   });
 
                   if (!characteristic) {
@@ -1445,11 +1612,14 @@ class GattClient extends EventEmitter {
 
           const queue = new GattUtils.OpQueue();
           let lastOp = Promise.resolve();
-          const entries = [];
+          const entries: CharacteristicObject[] = [];
 
           for (const c of cList) {
             const match = characteristics.find((ch) => {
-              return ch.serviceUuid === c._serviceUuid && ch.characteristicUuid === c.uuid;
+              return (
+                ch.serviceUuid === (<{ _serviceUuid: string }>(<unknown>c))._serviceUuid &&
+                ch.characteristicUuid === c.uuid
+              );
             });
 
             if (!match) {
@@ -1462,20 +1632,20 @@ class GattClient extends EventEmitter {
               iid
             );
 
-            lastOp = queue.queue(() => {
-              return connection.writeCharacteristic(c, [pdu]).then((pdus) => {
+            lastOp = <Promise<void>>queue.queue(() => {
+              return connection!.writeCharacteristic(c, [pdu]).then((pdus) => {
                 if (pdus.length === 0) {
-                  return Promise.reject('No sgnature read response');
+                  throw new Error('No sgnature read response');
                 }
 
-                const entry = { aid: 1, iid };
+                const entry: CharacteristicObject = { aid: 1, iid };
                 const response = pdus[0];
                 const status = response.readUInt8(2);
                 if (status !== 0) {
-                  return Promise.reject(`Got error status while reading signature: ${status}`);
+                  throw new Error(`Got error status while reading signature: ${status}`);
                 }
 
-                const body = TLV.decodeBuffer(response.slice(5, response.length));
+                const body = decodeBuffer(response.slice(5, response.length));
 
                 const properties = body.get(
                   GattConstants.Types['HAP-Param-HAP-Characteristic-Properties-Descriptor']
@@ -1517,13 +1687,13 @@ class GattClient extends EventEmitter {
                 );
                 if (format && options.meta) {
                   const sigFormat = format.readUInt8(0);
-                  const hapFormat = GattConstants.BTSigToHapFormat[sigFormat];
+                  const hapFormat = GattConstants.BTSigToHapFormat.get(sigFormat);
                   if (hapFormat) {
                     entry.format = hapFormat;
                   }
 
                   const sigUnit = format.readUInt16LE(3);
-                  const hapUnit = GattConstants.BTSigToHapUnit[sigUnit];
+                  const hapUnit = GattConstants.BTSigToHapUnit.get(sigUnit);
                   if (hapUnit) {
                     entry.unit = hapUnit;
                   }
@@ -1607,14 +1777,7 @@ class GattClient extends EventEmitter {
                   GattConstants.Types['HAP-Param-HAP-Valid-Values-Range-Descriptor']
                 );
                 if (validValuesRange && options.extra) {
-                  entry['valid-values-range'] = [];
-                  Array.from(validValuesRange.values()).reduce((result, value, index, array) => {
-                    if (index % 2 === 0) {
-                      entry['valid-values-range'].push(array.slice(index, index + 2));
-                    }
-
-                    return entry['valid-values-range'];
-                  }, []);
+                  entry['valid-values-range'] = Array.from(validValuesRange.values()).slice(0, 2);
                 }
 
                 entries.push(entry);
@@ -1627,11 +1790,14 @@ class GattClient extends EventEmitter {
         .then((entries) => {
           const queue = new GattUtils.OpQueue();
           let lastOp = Promise.resolve();
-          const updatedEntries = [];
+          const updatedEntries: CharacteristicObject[] = [];
 
           for (const c of cList) {
             const match = characteristics.find((ch) => {
-              return ch.serviceUuid === c._serviceUuid && ch.characteristicUuid === c.uuid;
+              return (
+                ch.serviceUuid === (<{ _serviceUuid: string }>(<unknown>c))._serviceUuid &&
+                ch.characteristicUuid === c.uuid
+              );
             });
 
             if (!match) {
@@ -1650,19 +1816,21 @@ class GattClient extends EventEmitter {
             }
 
             if (options.ev) {
-              entry.ev = false;
+              entry!.ev = false;
             }
 
             if (options.type) {
-              entry.type = GattUtils.nobleUuidToUuid(c.uuid);
+              entry!.type = GattUtils.nobleUuidToUuid(c.uuid);
             }
 
             if (options.extra) {
-              entry.serviceUuid = GattUtils.nobleUuidToUuid(c._serviceUuid);
+              entry!.serviceUuid = GattUtils.nobleUuidToUuid(
+                (<{ _serviceUuid: string }>(<unknown>c))._serviceUuid
+              );
             }
 
-            lastOp = queue.queue(() => {
-              return connection
+            lastOp = <Promise<void>>queue.queue(() => {
+              return connection!
                 .writeCharacteristic(c, [pdu])
                 .then((pdus) => {
                   if (pdus.length === 0) {
@@ -1670,35 +1838,35 @@ class GattClient extends EventEmitter {
                   }
 
                   const response = pdus[0];
-                  const body = TLV.decodeBuffer(response.slice(5, response.length));
+                  const body = decodeBuffer(response.slice(5, response.length));
                   const value = body.get(GattConstants.Types['HAP-Param-Value']);
                   if (!value) {
                     return;
                   }
 
-                  if (entry.format) {
-                    entry.value = GattUtils.bufferToValue(value, entry.format);
+                  if (entry!.format) {
+                    entry!.value = GattUtils.bufferToValue(value, entry!.format);
                   } else if (match.format) {
-                    entry.value = GattUtils.bufferToValue(value, match.format);
+                    entry!.value = GattUtils.bufferToValue(value, match.format);
                   }
 
-                  updatedEntries.push(entry);
+                  updatedEntries.push(entry!);
                 })
                 .catch(() => {
                   // If an error occurs here, go ahead and push the entry without a
                   // value.
-                  updatedEntries.push(entry);
+                  updatedEntries.push(entry!);
                 });
             });
           }
 
           return lastOp.then(() => updatedEntries);
         })
-        .then((ret) => {
-          ret = { characteristics: ret };
+        .then((entries) => {
+          const ret = { characteristics: entries };
 
           if (needToClose) {
-            return connection
+            return connection!
               .disconnect()
               .then(() => Promise.resolve(ret))
               .catch(() => Promise.resolve(ret));
@@ -1708,12 +1876,15 @@ class GattClient extends EventEmitter {
         })
         .catch((err) => {
           if (needToClose) {
-            return connection
-              .disconnect()
-              .catch(() => {})
-              .then(() => Promise.reject(err));
+            return (
+              connection!
+                .disconnect()
+                // eslint-disable-next-line @typescript-eslint/no-empty-function
+                .catch(() => {})
+                .then(() => Promise.reject(err))
+            );
           } else {
-            return Promise.reject(err);
+            throw new Error(err);
           }
         });
     };
@@ -1722,7 +1893,7 @@ class GattClient extends EventEmitter {
       return fn();
     }
 
-    return this._queueOperation(fn);
+    return <Promise<{ characteristics: CharacteristicObject[] }>>this._queueOperation(fn);
   }
 
   /**
@@ -1730,10 +1901,12 @@ class GattClient extends EventEmitter {
    *
    * @param {Object[]} values - Characteristics to set, as a list of objects:
    *                   {characteristicUuid, serviceUuid, iid, value}
-   * @returns {Promise} Promise which resolves to the JSON document.
+   * @returns {Promise} Promise which resolves when the characteristics have been set.
    */
-  setCharacteristics(values) {
-    return this._queueOperation(() => {
+  setCharacteristics(
+    values: { characteristicUuid: string; serviceUuid: string; iid: number; value: unknown }[]
+  ): Promise<void> {
+    return <Promise<void>>this._queueOperation(() => {
       const connection = new GattConnection(this.peripheral);
       return connection
         .connect()
@@ -1751,9 +1924,14 @@ class GattClient extends EventEmitter {
             this.peripheral.discoverSomeServicesAndCharacteristics(
               values.map((c) => c.serviceUuid),
               values.map((c) => c.characteristicUuid),
-              (err, services, characteristics) => {
+              (err, _services, characteristics) => {
                 watcher.stop();
                 if (watcher.rejected) {
+                  return;
+                }
+
+                if (err) {
+                  reject(err);
                   return;
                 }
 
@@ -1762,7 +1940,7 @@ class GattClient extends EventEmitter {
 
                 for (const v of values) {
                   const characteristic = characteristics.find((c) => {
-                    return c._serviceUuid === v.serviceUuid;
+                    return (<{ _serviceUuid: string }>(<unknown>c))._serviceUuid === v.serviceUuid;
                   });
 
                   if (!characteristic) {
@@ -1778,7 +1956,7 @@ class GattClient extends EventEmitter {
                     data
                   );
 
-                  lastOp = queue.queue(() => {
+                  lastOp = <Promise<void>>queue.queue(() => {
                     return connection.writeCharacteristic(characteristic, [pdu]);
                   });
                 }
@@ -1795,10 +1973,13 @@ class GattClient extends EventEmitter {
             .catch(() => Promise.resolve());
         })
         .catch((err) => {
-          return connection
-            .disconnect()
-            .catch(() => {})
-            .then(() => Promise.reject(err));
+          return (
+            connection
+              .disconnect()
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              .catch(() => {})
+              .then(() => Promise.reject(err))
+          );
         });
     });
   }
@@ -1811,8 +1992,15 @@ class GattClient extends EventEmitter {
    *                   {characteristicUuid, serviceUuid, iid, format}
    * @returns {Promise} Promise which resolves to the GattConnection object.
    */
-  subscribeCharacteristics(characteristics) {
-    return this._queueOperation(() => {
+  subscribeCharacteristics(
+    characteristics: {
+      characteristicUuid: string;
+      serviceUuid: string;
+      iid: number;
+      format: string;
+    }[]
+  ): Promise<GattConnection> {
+    return <Promise<GattConnection>>this._queueOperation(() => {
       for (const c of characteristics) {
         c.characteristicUuid = GattUtils.uuidToNobleUuid(c.characteristicUuid);
         c.serviceUuid = GattUtils.uuidToNobleUuid(c.serviceUuid);
@@ -1827,7 +2015,7 @@ class GattClient extends EventEmitter {
             this.peripheral.discoverSomeServicesAndCharacteristics(
               characteristics.map((c) => c.serviceUuid),
               characteristics.map((c) => c.characteristicUuid),
-              (err, discoveredServices, discoveredCharacteristics) => {
+              (err, _discoveredServices, discoveredCharacteristics) => {
                 watcher.stop();
                 if (watcher.rejected) {
                   return;
@@ -1843,7 +2031,10 @@ class GattClient extends EventEmitter {
 
                 for (const c of characteristics) {
                   const characteristic = discoveredCharacteristics.find((d) => {
-                    return d._serviceUuid === c.serviceUuid && d.uuid === c.characteristicUuid;
+                    return (
+                      (<{ _serviceUuid: string }>(<unknown>d))._serviceUuid === c.serviceUuid &&
+                      d.uuid === c.characteristicUuid
+                    );
                   });
 
                   if (!characteristic) {
@@ -1851,8 +2042,8 @@ class GattClient extends EventEmitter {
                     return;
                   }
 
-                  lastOp = queue.queue(() => {
-                    return new Promise((resolve, reject) => {
+                  lastOp = <Promise<void>>queue.queue(() => {
+                    return new Promise<void>((resolve, reject) => {
                       const watcher = new GattUtils.Watcher(this.peripheral, reject);
                       characteristic.subscribe((err) => {
                         watcher.stop();
@@ -1869,7 +2060,7 @@ class GattClient extends EventEmitter {
                     });
                   });
 
-                  characteristic.on('data', (data) => {
+                  characteristic.on('data', (data: Buffer) => {
                     // Indications come up as empty buffers. A characteristic read
                     // should be triggered when this happens.
                     if (Buffer.isBuffer(data) && data.length === 0) {
@@ -1896,7 +2087,9 @@ class GattClient extends EventEmitter {
    *                   a list of objects: {characteristicUuid, serviceUuid}
    * @returns {Promise} Promise which resolves when the procedure is done.
    */
-  unsubscribeCharacteristics(characteristics) {
+  unsubscribeCharacteristics(
+    characteristics: { characteristicUuid: string; serviceUuid: string }[]
+  ): Promise<void> {
     for (const c of characteristics) {
       c.characteristicUuid = GattUtils.uuidToNobleUuid(c.characteristicUuid);
       c.serviceUuid = GattUtils.uuidToNobleUuid(c.serviceUuid);
@@ -1907,7 +2100,7 @@ class GattClient extends EventEmitter {
       this.peripheral.discoverSomeServicesAndCharacteristics(
         characteristics.map((c) => c.serviceUuid),
         characteristics.map((c) => c.characteristicUuid),
-        (err, discoveredServices, discoveredCharacteristics) => {
+        (err, _discoveredServices, discoveredCharacteristics) => {
           watcher.stop();
           if (watcher.rejected) {
             return;
@@ -1923,7 +2116,10 @@ class GattClient extends EventEmitter {
 
           for (const c of characteristics) {
             const characteristic = discoveredCharacteristics.find((d) => {
-              return d._serviceUuid === c.serviceUuid && d.uuid === c.characteristicUuid;
+              return (
+                (<{ _serviceUuid: string }>(<unknown>d))._serviceUuid === c.serviceUuid &&
+                d.uuid === c.characteristicUuid
+              );
             });
 
             if (!characteristic) {
@@ -1931,8 +2127,8 @@ class GattClient extends EventEmitter {
               return;
             }
 
-            lastOp = queue.queue(() => {
-              return new Promise((resolve, reject) => {
+            lastOp = <Promise<void>>queue.queue(() => {
+              return new Promise<void>((resolve, reject) => {
                 const watcher = new GattUtils.Watcher(this.peripheral, reject);
                 characteristic.unsubscribe((err) => {
                   watcher.stop();
@@ -1956,5 +2152,3 @@ class GattClient extends EventEmitter {
     });
   }
 }
-
-module.exports = GattClient;

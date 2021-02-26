@@ -28,10 +28,13 @@ jobs:
           npm ci
       - name: Check formatting with prettier
         run: |
-          npx prettier -u -c examples lib
+          npx prettier -u -c '*.ts' examples src __tests__
       - name: Lint with eslint
         run: |
           npm run lint
+      - name: Run build
+        run: |
+          npm run build
       - name: Run unit tests
         run: |
           npm run test

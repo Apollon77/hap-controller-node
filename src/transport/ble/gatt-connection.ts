@@ -1,18 +1,29 @@
 /**
  * Class to represent a multi-request GATT connection.
  */
-'use strict';
 
-const { OpQueue, Watcher } = require('./gatt-utils');
-const sodium = require('libsodium-wrappers');
+import { OpQueue, Watcher } from './gatt-utils';
+import * as sodium from 'libsodium-wrappers';
+import { Characteristic, Peripheral } from '@abandonware/noble';
+import { SessionKeys } from '../../protocol/pairing-protocol';
 
-class GattConnection {
+export default class GattConnection {
+  private peripheral: Peripheral;
+
+  private sessionKeys: SessionKeys | null;
+
+  private a2cCounter: number;
+
+  private c2aCounter: number;
+
+  private queue: OpQueue;
+
   /**
    * Initialize the GattConnection object.
    *
    * @param {Object} peripheral - Peripheral object from noble
    */
-  constructor(peripheral) {
+  constructor(peripheral: Peripheral) {
     this.peripheral = peripheral;
     this.sessionKeys = null;
     this.a2cCounter = 0;
@@ -26,7 +37,7 @@ class GattConnection {
    * @param {function} op - Function to add to the queue
    * @returns {Promise} Promise which resolves when the function is called.
    */
-  _queueOperation(op) {
+  _queueOperation(op: () => Promise<unknown>): Promise<unknown> {
     return this.queue.queue(op);
   }
 
@@ -35,7 +46,7 @@ class GattConnection {
    *
    * @param {Object} keys - The session key object obtained from PairingProtocol
    */
-  setSessionKeys(keys) {
+  setSessionKeys(keys: SessionKeys): void {
     this.sessionKeys = keys;
   }
 
@@ -45,47 +56,43 @@ class GattConnection {
    * @returns {Promise} Promise which resolves when the connection is
    *                    established.
    */
-  connect() {
+  async connect(): Promise<void> {
     if (this.peripheral.state === 'connected') {
-      return Promise.resolve();
+      return;
     }
 
     let initial;
     if (this.peripheral.state !== 'disconnected') {
-      initial = new Promise((resolve, reject) => {
+      initial = new Promise<void>((resolve, reject) => {
         const watcher = new Watcher(this.peripheral, reject);
-        this.peripheral.disconnect((err) => {
+        this.peripheral.disconnect(() => {
           watcher.stop();
           if (watcher.rejected) {
             return;
           }
 
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
+          resolve();
         });
       });
     } else {
       initial = Promise.resolve();
     }
 
-    return initial.then(() => {
-      return new Promise((resolve, reject) => {
-        const watcher = new Watcher(this.peripheral, reject);
-        this.peripheral.connect((err) => {
-          watcher.stop();
-          if (watcher.rejected) {
-            return;
-          }
+    await initial;
 
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
+    return new Promise((resolve, reject) => {
+      const watcher = new Watcher(this.peripheral, reject);
+      this.peripheral.connect((err) => {
+        watcher.stop();
+        if (watcher.rejected) {
+          return;
+        }
+
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
       });
     });
   }
@@ -95,21 +102,17 @@ class GattConnection {
    *
    * @returns {Promise} Promise which resolves when the connection is destroyed.
    */
-  disconnect() {
+  disconnect(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.peripheral.state !== 'disconnected') {
         const watcher = new Watcher(this.peripheral, reject);
-        this.peripheral.disconnect((err) => {
+        this.peripheral.disconnect(() => {
           watcher.stop();
           if (watcher.rejected) {
             return;
           }
 
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
+          resolve();
         });
       } else {
         resolve();
@@ -123,7 +126,7 @@ class GattConnection {
    * @param {Buffer[]} pdus - List of PDUs to encrypt
    * @returns {Buffer[]} List of encrypted PDUs.
    */
-  _encryptPdus(pdus) {
+  _encryptPdus(pdus: Buffer[]): Buffer[] {
     const encryptedPdus = [];
 
     for (const pdu of pdus) {
@@ -141,7 +144,7 @@ class GattConnection {
             null,
             null,
             writeNonce,
-            this.sessionKeys.ControllerToAccessoryKey
+            this.sessionKeys!.ControllerToAccessoryKey
           )
         );
 
@@ -159,7 +162,7 @@ class GattConnection {
    * @param {Buffer} pdu - PDU to decrypt
    * @returns {Buffer} Decrypted PDU.
    */
-  _decryptPdu(pdu) {
+  _decryptPdu(pdu: Buffer): Buffer {
     const readNonce = Buffer.alloc(12);
     readNonce.writeUInt32LE(this.a2cCounter++, 4);
 
@@ -170,7 +173,7 @@ class GattConnection {
           pdu,
           null,
           readNonce,
-          this.sessionKeys.AccessoryToControllerKey
+          this.sessionKeys!.AccessoryToControllerKey
         )
       );
 
@@ -188,44 +191,40 @@ class GattConnection {
    * @returns {Promise} Promise which resolves to a list of responses when all
    *                    writes are sent.
    */
-  writeCharacteristic(characteristic, pdus) {
-    return this._queueOperation(() => {
-      return sodium.ready
-        .then(() => {
-          return this.connect();
-        })
-        .then(() => {
-          const queue = new OpQueue();
-          let lastOp = Promise.resolve();
+  writeCharacteristic(characteristic: Characteristic, pdus: Buffer[]): Promise<Buffer[]> {
+    return <Promise<Buffer[]>>this._queueOperation(async () => {
+      await sodium.ready;
+      await this.connect();
 
-          if (this.sessionKeys) {
-            pdus = this._encryptPdus(pdus);
-          }
+      const queue = new OpQueue();
+      let lastOp: Promise<unknown> = Promise.resolve();
 
-          for (const pdu of pdus) {
-            lastOp = queue.queue(() => {
-              return new Promise((resolve, reject) => {
-                const watcher = new Watcher(this.peripheral, reject);
-                characteristic.write(pdu, false, (err) => {
-                  watcher.stop();
-                  if (watcher.rejected) {
-                    return;
-                  }
+      if (this.sessionKeys) {
+        pdus = this._encryptPdus(pdus);
+      }
 
-                  if (err) {
-                    reject(err);
-                  } else {
-                    resolve();
-                  }
-                });
-              });
+      for (const pdu of pdus) {
+        lastOp = queue.queue(() => {
+          return new Promise<void>((resolve, reject) => {
+            const watcher = new Watcher(this.peripheral, reject);
+            characteristic.write(pdu, false, (err) => {
+              watcher.stop();
+              if (watcher.rejected) {
+                return;
+              }
+
+              if (err) {
+                reject(err);
+              } else {
+                resolve();
+              }
             });
-          }
-
-          return lastOp.then(() => {
-            return this._readCharacteristicInner(characteristic, []);
           });
         });
+      }
+
+      await lastOp;
+      return this._readCharacteristicInner(characteristic, []);
     });
   }
 
@@ -236,7 +235,7 @@ class GattConnection {
    * @param {Buffer[]} pdus - List of PDUs already read
    * @returns {Promise} Promise which resolves to a list of PDUs.
    */
-  _readCharacteristicInner(characteristic, pdus = []) {
+  _readCharacteristicInner(characteristic: Characteristic, pdus: Buffer[] = []): Promise<Buffer[]> {
     return new Promise((resolve, reject) => {
       const watcher = new Watcher(this.peripheral, reject);
       characteristic.read((err, data) => {
@@ -301,13 +300,10 @@ class GattConnection {
    * @param {Object} characteristic - Characteristic object to write to
    * @returns {Promise} Promise which resolves to a list of PDUs.
    */
-  readCharacteristic(characteristic) {
-    return this._queueOperation(() => {
-      return this.connect().then(() => {
-        return this._readCharacteristicInner(characteristic, []);
-      });
+  readCharacteristic(characteristic: Characteristic): Promise<Buffer[]> {
+    return <Promise<Buffer[]>>this._queueOperation(async () => {
+      await this.connect();
+      return this._readCharacteristicInner(characteristic, []);
     });
   }
 }
-
-module.exports = GattConnection;

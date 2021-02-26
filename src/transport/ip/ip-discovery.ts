@@ -1,23 +1,42 @@
 /**
  * Zeroconf wrappers for finding HAP devices.
  */
-'use strict';
 
-const EventEmitter = require('events');
-const dnssd = require('dnssd');
+import { EventEmitter } from 'events';
+import { Browser, Options, Service, ServiceType } from 'dnssd';
 
-class IPDiscovery extends EventEmitter {
+export interface HapService {
+  name: string;
+  address: string;
+  port: number;
+  'c#': number;
+  ff: number;
+  id: string;
+  md: string;
+  pv: string;
+  's#': number;
+  sf: number;
+  ci: number;
+}
+
+export default class IPDiscovery extends EventEmitter {
+  private browser: Browser | null;
+
+  private iface?: string;
+
+  private services: Map<string, HapService>;
+
   /**
    * Initialize the IPDiscovery object.
    *
    * @param {string?} iface - Optional interface to bind to
    */
-  constructor(iface) {
+  constructor(iface?: string) {
     super();
     this.browser = null;
 
     if (iface) {
-      this.interface = iface;
+      this.iface = iface;
     }
 
     this.services = new Map();
@@ -30,7 +49,7 @@ class IPDiscovery extends EventEmitter {
    *
    * @param {Object} service - Service record to convert
    */
-  static _serviceToHapService(service) {
+  private static _serviceToHapService(service: Service): HapService {
     return {
       name: service.name,
       address: service.addresses[0],
@@ -49,17 +68,17 @@ class IPDiscovery extends EventEmitter {
   /**
    * Start searching for HAP devices on the network.
    */
-  start() {
+  start(): void {
     if (this.browser) {
       this.browser.stop();
     }
 
-    const options = {};
-    if (this.interface) {
-      options.interface = this.interface;
+    const options: Options = {};
+    if (this.iface) {
+      options.interface = this.iface;
     }
 
-    this.browser = new dnssd.Browser(new dnssd.ServiceType('_hap._tcp'), options);
+    this.browser = new Browser(new ServiceType('_hap._tcp'), options);
     this.browser.on('serviceUp', (service) => {
       const hapService = IPDiscovery._serviceToHapService(service);
       this.services.set(hapService.id, hapService);
@@ -78,19 +97,17 @@ class IPDiscovery extends EventEmitter {
    *
    * @returns {Object[]} Array of services
    */
-  list() {
+  list(): HapService[] {
     return Array.from(this.services.values());
   }
 
   /**
    * Stop an ongoing discovery process.
    */
-  stop() {
+  stop(): void {
     if (this.browser) {
       this.browser.stop();
       this.browser = null;
     }
   }
 }
-
-module.exports = IPDiscovery;

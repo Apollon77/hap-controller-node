@@ -3,10 +3,10 @@
  *
  * See Chapter 8
  */
-/* eslint-disable max-len */
-'use strict';
 
 const UuidSuffix = '-0000-1000-8000-0026BB765291';
+
+/* eslint-disable max-len */
 const CharacteristicMapByUuid = {
   [`00000001${UuidSuffix}`]: 'public.hap.characteristic.administrator-only-access',
   [`00000005${UuidSuffix}`]: 'public.hap.characteristic.audio-feedback',
@@ -204,6 +204,7 @@ const CharacteristicMapByUuid = {
   [`00000226${UuidSuffix}`]: 'public.hap.characteristic.recording-audio-active',
   [`00000227${UuidSuffix}`]: 'public.hap.characteristic.manually-disabled',
 };
+/* eslint-enable max-len */
 
 const CharacteristicMapByCharacteristic = Object.assign(
   {},
@@ -216,7 +217,7 @@ const CharacteristicMapByCharacteristic = Object.assign(
  * @param {string} uuid - Characteristic UUID
  * @returns {string} Characteristic name
  */
-function characteristicFromUuid(uuid) {
+export function characteristicFromUuid(uuid: string): string {
   if (uuid.length <= 8) {
     uuid = `${uuid.padStart(8, '0')}${UuidSuffix}`;
   }
@@ -232,11 +233,6 @@ function characteristicFromUuid(uuid) {
  * @param {string} characteristic - Characteristic name
  * @returns {string} Characteristic UUID
  */
-function uuidFromCharacteristic(characteristic) {
+export function uuidFromCharacteristic(characteristic: string): string {
   return CharacteristicMapByCharacteristic[characteristic] || characteristic;
 }
-
-module.exports = {
-  characteristicFromUuid,
-  uuidFromCharacteristic,
-};

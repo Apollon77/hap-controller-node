@@ -3,10 +3,9 @@
  *
  * See Chapters 6 and 9.
  */
-/* eslint-disable max-len */
-'use strict';
 
 const UuidSuffix = '-0000-1000-8000-0026BB765291';
+
 const ServiceMapByUuid = {
   [`0000003E${UuidSuffix}`]: 'public.hap.service.accessory-information',
   [`00000040${UuidSuffix}`]: 'public.hap.service.fan',
@@ -85,7 +84,7 @@ const ServiceMapByService = Object.assign(
  * @param {string} uuid - Service UUID
  * @returns {string} Service name
  */
-function serviceFromUuid(uuid) {
+export function serviceFromUuid(uuid: string): string {
   if (uuid.length <= 8) {
     uuid = `${uuid.padStart(8, '0')}${UuidSuffix}`;
   }
@@ -101,11 +100,6 @@ function serviceFromUuid(uuid) {
  * @param {string} service - Service name
  * @returns {string} Service UUID
  */
-function uuidFromService(service) {
+export function uuidFromService(service: string): string {
   return ServiceMapByService[service] || service;
 }
-
-module.exports = {
-  serviceFromUuid,
-  uuidFromService,
-};

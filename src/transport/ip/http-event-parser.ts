@@ -1,25 +1,38 @@
 /**
  * Basic parser for HTTP-based HAP event messages.
  */
-'use strict';
+import { EventEmitter } from 'events';
 
-const EventEmitter = require('events');
-
-const State = {
-  EMPTY: 0,
-  REQUEST_LINE_COMPLETE: 1,
-  HEADERS_COMPLETE: 2,
-};
+enum State {
+  EMPTY,
+  REQUEST_LINE_COMPLETE,
+  HEADERS_COMPLETE,
+}
 
 const HEADER_SUFFIX = '\r\n\r\n';
 
-class HttpEventParser extends EventEmitter {
+export default class HttpEventParser extends EventEmitter {
+  private _pending = Buffer.alloc(0);
+
+  private _state = State.EMPTY;
+
+  private headers: Record<string, string> = {};
+
+  private protocol: string | null = null;
+
+  version: string | null = null;
+
+  statusCode: number | null = null;
+
+  statusMessage: string | null = null;
+
+  body = Buffer.alloc(0);
+
   /**
    * Initialize the HttpEventParser object.
    */
   constructor() {
     super();
-    this._pending = Buffer.alloc(0);
     this._reset();
   }
 
@@ -28,7 +41,7 @@ class HttpEventParser extends EventEmitter {
    *
    * @param {Buffer} data - Chunk of data
    */
-  execute(data) {
+  execute(data: Buffer): void {
     this._pending = Buffer.concat([this._pending, data]);
 
     while (this._pending.length > 0) {
@@ -111,7 +124,7 @@ class HttpEventParser extends EventEmitter {
   /**
    * Reset the internal parser state.
    */
-  _reset() {
+  private _reset(): void {
     this.protocol = null;
     this.version = null;
     this.statusCode = null;
@@ -121,5 +134,3 @@ class HttpEventParser extends EventEmitter {
     this._state = State.EMPTY;
   }
 }
-
-module.exports = HttpEventParser;

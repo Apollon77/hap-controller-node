@@ -5,7 +5,7 @@
 'use strict';
 
 const e2p = require('event-to-promise');
-const HttpEventParser = require('../lib/transport/ip/http-event-parser');
+const HttpEventParser = require('../lib/transport/ip/http-event-parser').default;
 
 it('EVENT from spec', async () => {
   const message =

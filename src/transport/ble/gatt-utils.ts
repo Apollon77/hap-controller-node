@@ -1,4 +1,4 @@
-'use strict';
+import { Peripheral } from '@abandonware/noble';
 
 /**
  * Convert a proper UUID to noble's format.
@@ -6,7 +6,7 @@
  * @param {string} uuid - UUID to convert
  * @returns {string} UUID
  */
-function uuidToNobleUuid(uuid) {
+export function uuidToNobleUuid(uuid: string): string {
   return uuid.toLowerCase().replace(/-/g, '');
 }
 
@@ -16,7 +16,7 @@ function uuidToNobleUuid(uuid) {
  * @param {string} uuid - UUID to convert
  * @returns {string} UUID
  */
-function nobleUuidToUuid(uuid) {
+export function nobleUuidToUuid(uuid: string): string {
   uuid = uuid.toUpperCase();
 
   if (uuid.length !== 32) {
@@ -41,7 +41,7 @@ function nobleUuidToUuid(uuid) {
  * @param {string} format - HAP data format
  * @returns {*} Unpacked value.
  */
-function bufferToValue(buffer, format) {
+export function bufferToValue(buffer: Buffer, format: string): unknown {
   switch (format) {
     case 'bool':
       return buffer.readUInt8(0) !== 0;
@@ -73,46 +73,46 @@ function bufferToValue(buffer, format) {
  * @param {string} format - HAP data format
  * @returns {Buffer} Packed buffer
  */
-function valueToBuffer(value, format) {
+export function valueToBuffer(value: unknown, format: string): Buffer {
   switch (format) {
     case 'bool':
-      return Buffer.from([value ? 1 : 0]);
+      return Buffer.from([<boolean>value ? 1 : 0]);
     case 'uint8':
-      return Buffer.from([value & 0xff]);
+      return Buffer.from([(<number>value) & 0xff]);
     case 'uint16': {
       const b = Buffer.alloc(2);
-      b.writeUInt16LE(value, 0);
+      b.writeUInt16LE(<number>value, 0);
       return b;
     }
     case 'uint32': {
       const b = Buffer.alloc(4);
-      b.writeUInt32LE(value, 0);
+      b.writeUInt32LE(<number>value, 0);
       return b;
     }
     case 'uint64': {
       const b = Buffer.alloc(8);
-      b.writeUInt32LE(value & 0xffffffff, 0);
-      b.writeUInt32LE(value >> 32, 4);
+      b.writeUInt32LE((<number>value) & 0xffffffff, 0);
+      b.writeUInt32LE((<number>value) >> 32, 4);
       return b;
     }
     case 'int': {
       const b = Buffer.alloc(4);
-      b.writeInt32LE(value);
+      b.writeInt32LE(<number>value);
       return b;
     }
     case 'float': {
       const b = Buffer.alloc(4);
-      b.writeFloatLE(value);
+      b.writeFloatLE(<number>value);
       return b;
     }
     case 'string':
-      return Buffer.from(value);
+      return Buffer.from(<string>value);
     case 'data':
       if (typeof value === 'string') {
         return Buffer.from(value, 'base64');
       }
 
-      return value;
+      return <Buffer>value;
     default:
       throw new Error(`Unknown format type: ${format}`);
   }
@@ -122,7 +122,19 @@ function valueToBuffer(value, format) {
  * This should be used when doing any communication with a BLE device, since
  * noble doesn't provide any timeout functionality.
  */
-class Watcher {
+export class Watcher {
+  rejected: boolean;
+
+  stopped: boolean;
+
+  private peripheral: Peripheral;
+
+  private rejectFn: (reason: string) => void;
+
+  private reject: (reason?: string) => void;
+
+  private timer?: NodeJS.Timeout;
+
   /**
    * Initialize the Watcher object.
    *
@@ -131,7 +143,7 @@ class Watcher {
    *                              timeout
    * @param {number?} timeout - Timeout
    */
-  constructor(peripheral, rejectFn, timeout = 30000) {
+  constructor(peripheral: Peripheral, rejectFn: (reason: string) => void, timeout = 30000) {
     this.rejected = false;
     this.stopped = false;
     this.peripheral = peripheral;
@@ -152,7 +164,7 @@ class Watcher {
    *
    * @param {string?} reason - Reject reason
    */
-  _reject(reason = 'Disconnected') {
+  private _reject(reason = 'Disconnected'): void {
     if (this.rejected || this.stopped) {
       return;
     }
@@ -164,7 +176,7 @@ class Watcher {
   /**
    * Stop the watcher.
    */
-  stop() {
+  stop(): void {
     this.stopped = true;
 
     if (this.timer) {
@@ -178,7 +190,9 @@ class Watcher {
 /**
  * Queue used for serializing BLE operations.
  */
-class OpQueue {
+export class OpQueue {
+  private _current: Promise<unknown>;
+
   /**
    * Create the queue.
    */
@@ -192,22 +206,14 @@ class OpQueue {
    * @param {function} op - Function to queue
    * @returns {Promise} Promise which resolves when the function has executed.
    */
-  queue(op) {
+  queue(op: () => Promise<unknown>): Promise<unknown> {
     const ret = new Promise((resolve, reject) => {
       this._current.then(() => {
         op().then(resolve, reject);
       });
     });
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     this._current = ret.catch(() => {});
     return ret;
   }
 }
-
-module.exports = {
-  bufferToValue,
-  nobleUuidToUuid,
-  uuidToNobleUuid,
-  valueToBuffer,
-  Watcher,
-  OpQueue,
-};

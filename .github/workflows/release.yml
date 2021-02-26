@@ -30,6 +30,13 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Build library
+        run: |
+          npm ci
+          npm run build
+        env:
+          CI: 'true'
+
       - name: Publish to npm
         run: npm publish
         env:

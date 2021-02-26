@@ -1,12 +1,39 @@
 /**
  * BLE discovery wrappers for finding HAP devices.
  */
-'use strict';
 
-const EventEmitter = require('events');
-const noble = require('@abandonware/noble');
+import { EventEmitter } from 'events';
+import * as noble from '@abandonware/noble';
 
-class BLEDiscovery extends EventEmitter {
+export interface HapService {
+  name: string;
+  CoID: number;
+  TY: number;
+  AIL: number;
+  SF: number;
+  DeviceID: string;
+  ACID: number;
+  GSN: number;
+  CN: number;
+  CV: number;
+  peripheral: noble.Peripheral;
+}
+
+export default class BLEDiscovery extends EventEmitter {
+  private scanEnabled: boolean;
+
+  private allowDuplicates: boolean;
+
+  private services: Map<string, HapService>;
+
+  private handleStateChange: (state: string) => void;
+
+  private handleDiscover: (peripheral: noble.Peripheral) => void;
+
+  private handleScanStart: () => void;
+
+  private handleScanStop: () => void;
+
   constructor() {
     super();
 
@@ -28,7 +55,7 @@ class BLEDiscovery extends EventEmitter {
    *                  is needed for disconnected events, where the GSN is
    *                  updated in the advertisement.
    */
-  start(allowDuplicates = false) {
+  start(allowDuplicates = false): void {
     this.scanEnabled = true;
     this.allowDuplicates = allowDuplicates;
 
@@ -39,7 +66,7 @@ class BLEDiscovery extends EventEmitter {
 
     // Only manually start if powered on already. Otherwise, wait for state
     // change and handle it there.
-    if (noble._state === 'poweredOn') {
+    if ((<{ _state: string }>(<unknown>noble))._state === 'poweredOn') {
       noble.startScanning([], this.allowDuplicates);
     }
   }
@@ -49,14 +76,14 @@ class BLEDiscovery extends EventEmitter {
    *
    * @returns {Object[]} Array of services
    */
-  list() {
+  list(): HapService[] {
     return Array.from(this.services.values());
   }
 
   /**
    * Stop an ongoing discovery process.
    */
-  stop() {
+  stop(): void {
     noble.stopScanning();
     noble.removeListener('stateChange', this.handleStateChange);
     noble.removeListener('scanStart', this.handleScanStart);
@@ -64,7 +91,7 @@ class BLEDiscovery extends EventEmitter {
     noble.removeListener('discover', this.handleDiscover);
   }
 
-  _handleStateChange(state) {
+  private _handleStateChange(state: string): void {
     if (state === 'poweredOn' && this.scanEnabled) {
       noble.startScanning([], this.allowDuplicates);
     } else {
@@ -72,19 +99,19 @@ class BLEDiscovery extends EventEmitter {
     }
   }
 
-  _handleScanStart() {
+  private _handleScanStart(): void {
     if (!this.scanEnabled) {
       noble.stopScanning();
     }
   }
 
-  _handleScanStop() {
+  private _handleScanStop(): void {
     if (this.scanEnabled) {
       noble.startScanning([], this.allowDuplicates);
     }
   }
 
-  _handleDiscover(peripheral) {
+  private _handleDiscover(peripheral: noble.Peripheral): void {
     const advertisement = peripheral.advertisement;
     const manufacturerData = advertisement.manufacturerData;
 
@@ -137,5 +164,3 @@ class BLEDiscovery extends EventEmitter {
     this.emit('serviceUp', service);
   }
 }
-
-module.exports = BLEDiscovery;

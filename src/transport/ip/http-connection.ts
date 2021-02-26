@@ -1,32 +1,52 @@
 /**
  * Class to represent a multi-request HTTP connection.
  */
-'use strict';
 
-const EventEmitter = require('events');
-const HttpEventParser = require('./http-event-parser');
-const net = require('net');
-const sodium = require('libsodium-wrappers');
-const { HTTPParser } = require('http-parser-js');
+import { EventEmitter } from 'events';
+import HttpEventParser from './http-event-parser';
+import net from 'net';
+import * as sodium from 'libsodium-wrappers';
+import { HTTPParser, ParserState } from 'http-parser-js';
+import { SessionKeys } from '../../protocol/pairing-protocol';
 
 /**
  * Internal socket state.
  */
-const State = {
-  CLOSED: 0,
-  OPENING: 1,
-  READY: 2,
-  CLOSING: 3,
-};
+enum State {
+  CLOSED,
+  OPENING,
+  READY,
+  CLOSING,
+}
 
-class HttpConnection extends EventEmitter {
+export interface HttpResponse {
+  statusCode: number;
+  headers: Record<string, string>;
+  body: Buffer;
+}
+
+export default class HttpConnection extends EventEmitter {
+  private address: string;
+
+  private port: number;
+
+  private state: State;
+
+  private socket: net.Socket | null;
+
+  private sessionKeys: SessionKeys | null;
+
+  private a2cCounter: number;
+
+  private c2aCounter: number;
+
   /**
    * Initialize the HttpConnection object.
    *
    * @param {string} address - IP address of the device
    * @param {number} port - HTTP port
    */
-  constructor(address, port) {
+  constructor(address: string, port: number) {
     super();
     this.address = address;
     this.port = port;
@@ -42,7 +62,7 @@ class HttpConnection extends EventEmitter {
    *
    * @param {Object} keys - The session key object obtained from PairingProtocol
    */
-  setSessionKeys(keys) {
+  setSessionKeys(keys: SessionKeys): void {
     this.sessionKeys = keys;
   }
 
@@ -52,35 +72,35 @@ class HttpConnection extends EventEmitter {
    * @returns {Promise} Promise which resolves when the socket is open and
    *                    ready.
    */
-  _open() {
+  private async _open(): Promise<void> {
     if (this.state === State.READY) {
-      return Promise.resolve();
+      return;
     } else if (this.state !== State.CLOSED && this.socket) {
-      this.socket.end();
+      this.socket!.end();
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.state = State.CLOSED;
       this.socket = net.createConnection(this.port, this.address);
-      this.socket.setKeepAlive(true);
+      this.socket!.setKeepAlive(true);
 
-      this.socket.on('close', () => {
+      this.socket!.on('close', () => {
         this.socket = null;
         this.state = State.CLOSED;
         this.emit('disconnect', {});
       });
-      this.socket.on('end', () => {
+      this.socket!.on('end', () => {
         this.state = State.CLOSING;
-        this.socket.end();
+        this.socket?.end();
       });
-      this.socket.on('timeout', () => {
+      this.socket!.on('timeout', () => {
         this.state = State.CLOSING;
-        this.socket.end();
+        this.socket?.end();
       });
-      this.socket.on('error', () => {
+      this.socket!.on('error', () => {
         reject();
       });
-      this.socket.on('connect', () => {
+      this.socket!.on('connect', () => {
         this.state = State.READY;
         resolve();
       });
@@ -94,8 +114,8 @@ class HttpConnection extends EventEmitter {
    * @returns {Promise} Promise which resolves to a buffer containing the
    *                    response body.
    */
-  get(path) {
-    const data = `GET ${path} HTTP/1.1\r\n\r\n`;
+  get(path: string): Promise<HttpResponse> {
+    const data = Buffer.from(`GET ${path} HTTP/1.1\r\n\r\n`);
     return this.request(data);
   }
 
@@ -108,7 +128,11 @@ class HttpConnection extends EventEmitter {
    * @returns {Promise} Promise which resolves to a buffer containing the
    *                    response body.
    */
-  post(path, body, contentType = 'application/hap+json') {
+  post(
+    path: string,
+    body: Buffer | string,
+    contentType = 'application/hap+json'
+  ): Promise<HttpResponse> {
     if (typeof body === 'string') {
       body = Buffer.from(body);
     }
@@ -133,7 +157,12 @@ class HttpConnection extends EventEmitter {
    * @returns {Promise} Promise which resolves to a buffer containing the
    *                    response body.
    */
-  put(path, body, contentType = 'application/hap+json', readEvents = false) {
+  put(
+    path: string,
+    body: Buffer | string,
+    contentType = 'application/hap+json',
+    readEvents = false
+  ): Promise<HttpResponse> {
     if (typeof body === 'string') {
       body = Buffer.from(body);
     }
@@ -156,7 +185,7 @@ class HttpConnection extends EventEmitter {
    * @returns {Promise} Promise which resolves to a buffer containing the
    *                    response body.
    */
-  request(body, readEvents) {
+  request(body: Buffer, readEvents = false): Promise<HttpResponse> {
     if (this.sessionKeys) {
       return this._requestEncrypted(body, readEvents);
     }
@@ -170,7 +199,7 @@ class HttpConnection extends EventEmitter {
    * @param {Buffer} data - Data to encrypt
    * @returns {Buffer} Encrypted data.
    */
-  _encryptData(data) {
+  private _encryptData(data: Buffer): Buffer {
     const encryptedData = [];
     let position = 0;
 
@@ -188,7 +217,7 @@ class HttpConnection extends EventEmitter {
           aad,
           null,
           writeNonce,
-          this.sessionKeys.ControllerToAccessoryKey
+          this.sessionKeys!.ControllerToAccessoryKey
         )
       );
 
@@ -206,10 +235,10 @@ class HttpConnection extends EventEmitter {
    * @param {callback} resolve - Function to call with response
    * @returns {Object} HTTPParser object.
    */
-  _buildHttpResponseParser(resolve) {
-    const parser = new HTTPParser(HTTPParser.RESPONSE);
+  private _buildHttpResponseParser(resolve: (response: HttpResponse) => void): ParserState {
+    const parser = HTTPParser(HTTPParser.RESPONSE);
 
-    const headers = {};
+    const headers: Record<string, string> = {};
     parser.onHeadersComplete = (res) => {
       for (let i = 0; i < res.headers.length; i += 2) {
         headers[res.headers[i]] = res.headers[i + 1];
@@ -223,7 +252,7 @@ class HttpConnection extends EventEmitter {
 
     parser.onMessageComplete = () => {
       resolve({
-        statusCode: parser.info.statusCode,
+        statusCode: parser.info.statusCode!,
         headers,
         body,
       });
@@ -241,75 +270,72 @@ class HttpConnection extends EventEmitter {
    * @returns {Promise} Promise which resolves to a buffer containing the
    *                    response body.
    */
-  _requestEncrypted(data, readEvents) {
-    return sodium.ready
-      .then(() => {
-        return this._open();
-      })
-      .then(() => {
-        return new Promise((resolve) => {
-          const oldListeners = this.socket.listeners('data');
-          this.socket.removeAllListeners('data');
+  private async _requestEncrypted(data: Buffer, readEvents = false): Promise<HttpResponse> {
+    await sodium.ready;
+    await this._open();
 
-          this.socket.write(this._encryptData(data));
+    return new Promise((resolve) => {
+      const oldListeners = <((...args: any[]) => void)[]>this.socket!.listeners('data');
+      this.socket!.removeAllListeners('data');
 
-          let message = Buffer.alloc(0);
+      this.socket!.write(this._encryptData(data));
 
-          // eslint-disable-next-line prefer-const
-          let parser;
+      let message = Buffer.alloc(0);
 
-          const bodyParser = (chunk) => {
-            message = Buffer.concat([message, chunk]);
-            while (message.length >= 18) {
-              const frameLength = message.readUInt16LE(0);
-              if (message.length < frameLength + 18) {
-                return;
-              }
+      // eslint-disable-next-line prefer-const
+      let parser: ParserState;
 
-              const aad = message.slice(0, 2);
-              const data = message.slice(2, 18 + frameLength);
-              const readNonce = Buffer.alloc(12);
-              readNonce.writeUInt32LE(this.a2cCounter, 4);
+      const bodyParser = (chunk: Buffer): void => {
+        message = Buffer.concat([message, chunk]);
+        while (message.length >= 18) {
+          const frameLength = message.readUInt16LE(0);
+          if (message.length < frameLength + 18) {
+            return;
+          }
 
-              try {
-                const decryptedData = Buffer.from(
-                  sodium.crypto_aead_chacha20poly1305_ietf_decrypt(
-                    null,
-                    data,
-                    aad,
-                    readNonce,
-                    this.sessionKeys.AccessoryToControllerKey
-                  )
-                );
+          const aad = message.slice(0, 2);
+          const data = message.slice(2, 18 + frameLength);
+          const readNonce = Buffer.alloc(12);
+          readNonce.writeUInt32LE(this.a2cCounter, 4);
 
-                message = message.slice(18 + frameLength, message.length);
-                ++this.a2cCounter;
-                parser.execute(decryptedData);
-              } catch (e) {
-                // pass
-              }
-            }
-          };
+          try {
+            const decryptedData = Buffer.from(
+              sodium.crypto_aead_chacha20poly1305_ietf_decrypt(
+                null,
+                data,
+                aad,
+                readNonce,
+                this.sessionKeys!.AccessoryToControllerKey
+              )
+            );
 
-          parser = this._buildHttpResponseParser((response) => {
-            this.socket.removeListener('data', bodyParser);
+            message = message.slice(18 + frameLength, message.length);
+            ++this.a2cCounter;
+            parser.execute(decryptedData);
+          } catch (e) {
+            // pass
+          }
+        }
+      };
 
-            for (const l of oldListeners) {
-              this.socket.on('data', l);
-            }
+      parser = this._buildHttpResponseParser((response) => {
+        this.socket!.removeListener('data', bodyParser);
 
-            if (readEvents) {
-              parser = new HttpEventParser();
-              parser.on('event', (ev) => this.emit('event', ev));
-              this.socket.on('data', bodyParser);
-            }
+        for (const l of oldListeners) {
+          this.socket!.on('data', l);
+        }
 
-            resolve(response);
-          });
+        if (readEvents) {
+          const evParser = new HttpEventParser();
+          evParser.on('event', (ev) => this.emit('event', ev));
+          this.socket!.on('data', bodyParser);
+        }
 
-          this.socket.on('data', bodyParser);
-        });
+        resolve(response);
       });
+
+      this.socket!.on('data', bodyParser);
+    });
   }
 
   /**
@@ -321,47 +347,45 @@ class HttpConnection extends EventEmitter {
    * @returns {Promise} Promise which resolves to a buffer containing the
    *                    response body.
    */
-  _requestClear(data, readEvents) {
-    return this._open().then(() => {
-      return new Promise((resolve) => {
-        const oldListeners = this.socket.listeners('data');
-        this.socket.removeAllListeners('data');
+  private async _requestClear(data: Buffer, readEvents = false): Promise<HttpResponse> {
+    await this._open();
 
-        this.socket.write(data);
+    return new Promise((resolve) => {
+      const oldListeners = <((...args: any[]) => void)[]>this.socket!.listeners('data');
+      this.socket!.removeAllListeners('data');
 
-        // eslint-disable-next-line prefer-const
-        let parser;
-        const bodyParser = (chunk) => {
-          parser.execute(chunk);
-        };
+      this.socket!.write(data);
 
-        parser = this._buildHttpResponseParser((response) => {
-          this.socket.removeListener('data', bodyParser);
+      // eslint-disable-next-line prefer-const
+      let parser: ParserState;
+      const bodyParser = (chunk: Buffer): void => {
+        parser.execute(chunk);
+      };
 
-          for (const l of oldListeners) {
-            this.socket.on('data', l);
-          }
+      parser = this._buildHttpResponseParser((response) => {
+        this.socket!.removeListener('data', bodyParser);
 
-          if (readEvents) {
-            parser = new HttpEventParser();
-            parser.on('event', (ev) => this.emit('event', ev));
-            this.socket.on('data', bodyParser);
-          }
+        for (const l of oldListeners) {
+          this.socket!.on('data', l);
+        }
 
-          resolve(response);
-        });
+        if (readEvents) {
+          const evParser = new HttpEventParser();
+          evParser.on('event', (ev) => this.emit('event', ev));
+          this.socket!.on('data', bodyParser);
+        }
 
-        this.socket.on('data', bodyParser);
+        resolve(response);
       });
+
+      this.socket!.on('data', bodyParser);
     });
   }
 
   /**
    * Close the socket.
    */
-  close() {
-    this.socket.end();
+  close(): void {
+    this.socket?.end();
   }
 }
-
-module.exports = HttpConnection;

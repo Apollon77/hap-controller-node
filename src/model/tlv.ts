@@ -1,9 +1,10 @@
 /**
  * Class for dealing with HAP TLV data.
  */
-'use strict';
 
 const kTLVType_Separator = 255;
+
+export type TLV = Map<number, Buffer>;
 
 /**
  * Decode a buffer into a TLV object.
@@ -11,9 +12,9 @@ const kTLVType_Separator = 255;
  * See Chapter 12.1
  *
  * @param {Buffer} buffer - Buffer to decode
- * @returns {Map} TLV object
+ * @returns {TLV} TLV object
  */
-function decodeBuffer(buffer) {
+export function decodeBuffer(buffer: Buffer): TLV {
   let position = 0;
   let lastTag = -1;
   const result = new Map();
@@ -61,16 +62,14 @@ function decodeBuffer(buffer) {
  *
  * See Chapter 12.1
  *
- * @param {Map} object - TLV object to encode
+ * @param {TLV} obj - TLV object to encode
  * @returns {Buffer} Encoded buffer
  */
-function encodeObject(object) {
+export function encodeObject(obj: TLV): Buffer {
   const tlvs = [];
 
   // eslint-disable-next-line prefer-const
-  for (let [tag, value] of object) {
-    tag = parseInt(tag, 10);
-
+  for (let [tag, value] of obj) {
     if (tag < 0 || tag > 255) {
       continue;
     }
@@ -110,8 +109,3 @@ function encodeObject(object) {
 
   return Buffer.concat(tlvs);
 }
-
-module.exports = {
-  decodeBuffer,
-  encodeObject,
-};

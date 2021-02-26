@@ -3,7 +3,6 @@
  *
  * See Chapter 12.2
  */
-'use strict';
 
 const CategoryMapById = {
   1: 'Other',
@@ -52,8 +51,8 @@ const CategoryMapByCategory = Object.assign(
  * @param {number} id - Accessory Category Identifier
  * @returns {string} Category name
  */
-function categoryFromId(id) {
-  return CategoryMapById[id] || 'Unknown';
+export function categoryFromId(id: number): string {
+  return CategoryMapById[<keyof typeof CategoryMapById>id] || 'Unknown';
 }
 
 /**
@@ -62,11 +61,6 @@ function categoryFromId(id) {
  * @param {string} category - Category name
  * @returns {number} Accessory Category Identifier
  */
-function idFromCategory(category) {
+export function idFromCategory(category: string): number {
   return CategoryMapByCategory[category] || 1;
 }
-
-module.exports = {
-  categoryFromId,
-  idFromCategory,
-};
