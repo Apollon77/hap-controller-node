@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc -p .",
     "lint": "eslint .",
     "prettier": "prettier -u -w '*.ts' examples src __tests__",
