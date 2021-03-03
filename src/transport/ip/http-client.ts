@@ -99,7 +99,7 @@ export default class HttpClient extends EventEmitter {
 
     const re = /^\d{3}-\d{2}-\d{3}$/;
     if (!re.test(pin)) {
-      return Promise.reject('Invalid PIN');
+      throw new Error('Invalid PIN');
     }
 
     const connection = this._pairingConnection;
