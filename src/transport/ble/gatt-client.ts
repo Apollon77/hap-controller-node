@@ -103,7 +103,7 @@ export default class GattClient extends EventEmitter {
    * @param {function} op - Function to add to the queue
    * @returns {Promise} Promise which resolves when the function is called.
    */
-  _queueOperation(op: () => Promise<unknown>): Promise<unknown> {
+  private _queueOperation(op: () => Promise<unknown>): Promise<unknown> {
     return this.queue.queue(op);
   }
 
@@ -201,7 +201,7 @@ export default class GattClient extends EventEmitter {
    * @param {Object} characteristic - The characteristic to read from
    * @returns {Promise} Promise which resolves to the IID.
    */
-  async _readInstanceId(characteristic: NobleCharacteristic): Promise<number> {
+  private async _readInstanceId(characteristic: NobleCharacteristic): Promise<number> {
     const characteristicInstanceIdUuid = GattUtils.uuidToNobleUuid(
       GattConstants.CharacteristicInstanceIdUuid
     );
@@ -471,7 +471,7 @@ export default class GattClient extends EventEmitter {
    * @param {Object} connection - Existing GattConnection object
    * @returns {Promise} Promise which resolves when the pairing has been verified.
    */
-  async _pairVerify(connection: GattConnection): Promise<void> {
+  private async _pairVerify(connection: GattConnection): Promise<void> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );

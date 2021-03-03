@@ -37,7 +37,7 @@ export default class GattConnection {
    * @param {function} op - Function to add to the queue
    * @returns {Promise} Promise which resolves when the function is called.
    */
-  _queueOperation(op: () => Promise<unknown>): Promise<unknown> {
+  private _queueOperation(op: () => Promise<unknown>): Promise<unknown> {
     return this.queue.queue(op);
   }
 
@@ -85,7 +85,7 @@ export default class GattConnection {
    * @param {Buffer[]} pdus - List of PDUs to encrypt
    * @returns {Buffer[]} List of encrypted PDUs.
    */
-  _encryptPdus(pdus: Buffer[]): Buffer[] {
+  private _encryptPdus(pdus: Buffer[]): Buffer[] {
     const encryptedPdus = [];
 
     for (const pdu of pdus) {
@@ -121,7 +121,7 @@ export default class GattConnection {
    * @param {Buffer} pdu - PDU to decrypt
    * @returns {Buffer} Decrypted PDU.
    */
-  _decryptPdu(pdu: Buffer): Buffer {
+  private _decryptPdu(pdu: Buffer): Buffer {
     const readNonce = Buffer.alloc(12);
     readNonce.writeUInt32LE(this.a2cCounter++, 4);
 
@@ -180,7 +180,7 @@ export default class GattConnection {
    * @param {Buffer[]} pdus - List of PDUs already read
    * @returns {Promise} Promise which resolves to a list of PDUs.
    */
-  async _readCharacteristicInner(
+  private async _readCharacteristicInner(
     characteristic: Characteristic,
     pdus: Buffer[] = []
   ): Promise<Buffer[]> {

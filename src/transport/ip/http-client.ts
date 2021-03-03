@@ -137,7 +137,7 @@ export default class HttpClient extends EventEmitter {
    * @param {Object} connection - Existing HttpConnection object
    * @returns {Promise} Promise which resolves to the generated session keys.
    */
-  async _pairVerify(connection: HttpConnection): Promise<SessionKeys> {
+  private async _pairVerify(connection: HttpConnection): Promise<SessionKeys> {
     // M1
     const m1 = await this.pairingProtocol.buildPairVerifyM1();
     const m2 = await connection.post('/pair-verify', m1, 'application/pairing+tlv8');
