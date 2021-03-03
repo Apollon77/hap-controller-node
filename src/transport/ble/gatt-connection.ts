@@ -61,40 +61,11 @@ export default class GattConnection {
       return;
     }
 
-    let initial;
     if (this.peripheral.state !== 'disconnected') {
-      initial = new Promise<void>((resolve, reject) => {
-        const watcher = new Watcher(this.peripheral, reject);
-        this.peripheral.disconnect(() => {
-          watcher.stop();
-          if (watcher.rejected) {
-            return;
-          }
-
-          resolve();
-        });
-      });
-    } else {
-      initial = Promise.resolve();
+      await new Watcher(this.peripheral, this.peripheral.disconnectAsync()).getPromise();
     }
 
-    await initial;
-
-    return new Promise((resolve, reject) => {
-      const watcher = new Watcher(this.peripheral, reject);
-      this.peripheral.connect((err) => {
-        watcher.stop();
-        if (watcher.rejected) {
-          return;
-        }
-
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+    await new Watcher(this.peripheral, this.peripheral.connectAsync()).getPromise();
   }
 
   /**
@@ -102,22 +73,10 @@ export default class GattConnection {
    *
    * @returns {Promise} Promise which resolves when the connection is destroyed.
    */
-  disconnect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.peripheral.state !== 'disconnected') {
-        const watcher = new Watcher(this.peripheral, reject);
-        this.peripheral.disconnect(() => {
-          watcher.stop();
-          if (watcher.rejected) {
-            return;
-          }
-
-          resolve();
-        });
-      } else {
-        resolve();
-      }
-    });
+  async disconnect(): Promise<void> {
+    if (this.peripheral.state !== 'disconnected') {
+      await new Watcher(this.peripheral, this.peripheral.disconnectAsync()).getPromise();
+    }
   }
 
   /**
@@ -204,27 +163,13 @@ export default class GattConnection {
       }
 
       for (const pdu of pdus) {
-        lastOp = queue.queue(() => {
-          return new Promise<void>((resolve, reject) => {
-            const watcher = new Watcher(this.peripheral, reject);
-            characteristic.write(pdu, false, (err) => {
-              watcher.stop();
-              if (watcher.rejected) {
-                return;
-              }
-
-              if (err) {
-                reject(err);
-              } else {
-                resolve();
-              }
-            });
-          });
+        lastOp = queue.queue(async () => {
+          await new Watcher(this.peripheral, characteristic.writeAsync(pdu, false)).getPromise();
         });
       }
 
       await lastOp;
-      return this._readCharacteristicInner(characteristic, []);
+      return await this._readCharacteristicInner(characteristic, []);
     });
   }
 
@@ -235,63 +180,53 @@ export default class GattConnection {
    * @param {Buffer[]} pdus - List of PDUs already read
    * @returns {Promise} Promise which resolves to a list of PDUs.
    */
-  _readCharacteristicInner(characteristic: Characteristic, pdus: Buffer[] = []): Promise<Buffer[]> {
-    return new Promise((resolve, reject) => {
-      const watcher = new Watcher(this.peripheral, reject);
-      characteristic.read((err, data) => {
-        watcher.stop();
-        if (watcher.rejected) {
-          return;
-        }
+  async _readCharacteristicInner(
+    characteristic: Characteristic,
+    pdus: Buffer[] = []
+  ): Promise<Buffer[]> {
+    let data = await new Watcher(this.peripheral, characteristic.readAsync()).getPromise();
 
-        if (err) {
-          reject(err);
-          return;
-        }
+    if (this.sessionKeys) {
+      data = this._decryptPdu(data);
+    }
 
-        if (this.sessionKeys) {
-          data = this._decryptPdu(data);
-        }
+    pdus.push(data);
 
-        pdus.push(data);
-
-        let complete = false;
-        if (!data || data.length === 0) {
-          complete = true;
-        } else {
-          const controlField = data.readUInt8(0);
-          if ((controlField & 0x80) === 0) {
-            // not fragmented or first pdu
-            if (data.length >= 5) {
-              const length = data.readUInt16LE(3);
-              if (length <= data.length - 5) {
-                complete = true;
-              }
-            } else {
-              complete = true;
-            }
-          } else if (pdus.length > 1) {
-            const length = pdus[0].readUInt16LE(3);
-            let totalRead = pdus[0].length - 5;
-            if (pdus.length > 1) {
-              pdus.slice(1).forEach((pdu) => {
-                totalRead += pdu.length - 2;
-              });
-            }
-
-            if (totalRead >= length) {
-              complete = true;
-            }
+    let complete = false;
+    if (!data || data.length === 0) {
+      complete = true;
+    } else {
+      const controlField = data.readUInt8(0);
+      if ((controlField & 0x80) === 0) {
+        // not fragmented or first pdu
+        if (data.length >= 5) {
+          const length = data.readUInt16LE(3);
+          if (length <= data.length - 5) {
+            complete = true;
           }
+        } else {
+          complete = true;
+        }
+      } else if (pdus.length > 1) {
+        const length = pdus[0].readUInt16LE(3);
+        let totalRead = pdus[0].length - 5;
+        if (pdus.length > 1) {
+          pdus.slice(1).forEach((pdu) => {
+            totalRead += pdu.length - 2;
+          });
         }
 
-        if (!complete) {
-          resolve(this._readCharacteristicInner(characteristic, pdus));
-        } else {
-          resolve(pdus);
+        if (totalRead >= length) {
+          complete = true;
         }
-      });
-    });
+      }
+    }
+
+    if (!complete) {
+      return await this._readCharacteristicInner(characteristic, pdus);
+    }
+
+    return pdus;
   }
 
   /**

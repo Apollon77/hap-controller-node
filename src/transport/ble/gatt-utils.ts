@@ -122,41 +122,58 @@ export function valueToBuffer(value: unknown, format: string): Buffer {
  * This should be used when doing any communication with a BLE device, since
  * noble doesn't provide any timeout functionality.
  */
-export class Watcher {
+export class Watcher<T> {
   rejected: boolean;
 
   stopped: boolean;
 
   private peripheral: Peripheral;
 
-  private rejectFn: (reason: string) => void;
+  private resolveFn?: () => void;
+
+  private rejectFn?: (reason: string) => void;
 
   private reject: (reason?: string) => void;
 
   private timer?: NodeJS.Timeout;
 
+  private promise: Promise<T>;
+
   /**
    * Initialize the Watcher object.
    *
    * @param {Object} peripheral - The noble peripheral object
-   * @param {function} rejectFn - The reject function to call on disconnect or
-   *                              timeout
+   * @param {Promise} watch - The Promise to set a timeout on
    * @param {number?} timeout - Timeout
    */
-  constructor(peripheral: Peripheral, rejectFn: (reason: string) => void, timeout = 30000) {
+  constructor(peripheral: Peripheral, watch: Promise<T>, timeout = 30000) {
     this.rejected = false;
     this.stopped = false;
     this.peripheral = peripheral;
-    this.rejectFn = rejectFn;
     this.reject = this._reject.bind(this);
 
     this.peripheral.once('disconnect', this.reject);
 
-    if (typeof timeout === 'number') {
+    const watchPromise = watch.finally(() => this.stop());
+
+    const timeoutPromise = new Promise<void>((resolve, reject) => {
+      this.resolveFn = resolve;
+      this.rejectFn = reject;
       this.timer = setTimeout(() => {
         this._reject('Timeout');
       }, timeout);
-    }
+    });
+
+    this.promise = <Promise<T>>Promise.race([watchPromise, timeoutPromise]);
+  }
+
+  /**
+   * Get the promise associated with this watcher.
+   *
+   * @returns {Promise} The promise.
+   */
+  getPromise(): Promise<T> {
+    return this.promise;
   }
 
   /**
@@ -170,7 +187,7 @@ export class Watcher {
     }
 
     this.rejected = true;
-    this.rejectFn(reason);
+    this.rejectFn!(reason);
   }
 
   /**
@@ -184,6 +201,7 @@ export class Watcher {
     }
 
     this.peripheral.removeListener('disconnect', this.reject);
+    this.resolveFn!();
   }
 }
 
