@@ -129,8 +129,6 @@ export class Watcher<T> {
 
   private peripheral: Peripheral;
 
-  private resolveFn?: () => void;
-
   private rejectFn?: (reason: string) => void;
 
   private reject: (reason?: string) => void;
@@ -156,8 +154,7 @@ export class Watcher<T> {
 
     const watchPromise = watch.finally(() => this.stop());
 
-    const timeoutPromise = new Promise<void>((resolve, reject) => {
-      this.resolveFn = resolve;
+    const timeoutPromise = new Promise<void>((_resolve, reject) => {
       this.rejectFn = reject;
       this.timer = setTimeout(() => {
         this._reject('Timeout');
@@ -201,7 +198,6 @@ export class Watcher<T> {
     }
 
     this.peripheral.removeListener('disconnect', this.reject);
-    this.resolveFn!();
   }
 }
 
