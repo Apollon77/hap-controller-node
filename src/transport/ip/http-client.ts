@@ -365,8 +365,7 @@ export default class HttpClient extends EventEmitter {
     const response = await connection.put(
       '/characteristics',
       Buffer.from(JSON.stringify(data)),
-      // eslint-disable-next-line no-undefined
-      undefined,
+      'application/hap+json',
       true
     );
 

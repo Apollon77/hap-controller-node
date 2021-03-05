@@ -5,8 +5,8 @@
 import { EventEmitter } from 'events';
 import HttpEventParser from './http-event-parser';
 import net from 'net';
-import * as sodium from 'libsodium-wrappers';
-import { HTTPParser, ParserState } from 'http-parser-js';
+import sodium from 'libsodium-wrappers';
+import { HTTPParser } from 'http-parser-js';
 import { SessionKeys } from '../../protocol/pairing-protocol';
 
 /**
@@ -235,8 +235,8 @@ export default class HttpConnection extends EventEmitter {
    * @param {callback} resolve - Function to call with response
    * @returns {Object} HTTPParser object.
    */
-  private _buildHttpResponseParser(resolve: (response: HttpResponse) => void): ParserState {
-    const parser = HTTPParser(HTTPParser.RESPONSE);
+  private _buildHttpResponseParser(resolve: (response: HttpResponse) => void): HTTPParser {
+    const parser = new HTTPParser(HTTPParser.RESPONSE);
 
     const headers: Record<string, string> = {};
     parser.onHeadersComplete = (res) => {
@@ -283,7 +283,7 @@ export default class HttpConnection extends EventEmitter {
       let message = Buffer.alloc(0);
 
       // eslint-disable-next-line prefer-const
-      let parser: ParserState;
+      let parser: HTTPParser | HttpEventParser;
 
       const bodyParser = (chunk: Buffer): void => {
         message = Buffer.concat([message, chunk]);
@@ -326,8 +326,8 @@ export default class HttpConnection extends EventEmitter {
         }
 
         if (readEvents) {
-          const evParser = new HttpEventParser();
-          evParser.on('event', (ev) => this.emit('event', ev));
+          parser = new HttpEventParser();
+          parser.on('event', (ev) => this.emit('event', ev));
           this.socket!.on('data', bodyParser);
         }
 
@@ -357,7 +357,8 @@ export default class HttpConnection extends EventEmitter {
       this.socket!.write(data);
 
       // eslint-disable-next-line prefer-const
-      let parser: ParserState;
+      let parser: HTTPParser | HttpEventParser;
+
       const bodyParser = (chunk: Buffer): void => {
         parser.execute(chunk);
       };
@@ -370,8 +371,8 @@ export default class HttpConnection extends EventEmitter {
         }
 
         if (readEvents) {
-          const evParser = new HttpEventParser();
-          evParser.on('event', (ev) => this.emit('event', ev));
+          parser = new HttpEventParser();
+          parser.on('event', (ev) => this.emit('event', ev));
           this.socket!.on('data', bodyParser);
         }
 

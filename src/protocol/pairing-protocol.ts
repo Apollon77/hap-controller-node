@@ -3,7 +3,7 @@
  */
 
 import { decodeBuffer, encodeObject, TLV } from '../model/tlv';
-import * as sodium from 'libsodium-wrappers';
+import sodium from 'libsodium-wrappers';
 import { v4 as uuidv4 } from 'uuid';
 import { SRP, SrpClient } from 'fast-srp-hap';
 import HKDF from 'node-hkdf-sync';

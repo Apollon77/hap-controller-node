@@ -3,7 +3,7 @@
  */
 
 import { EventEmitter } from 'events';
-import * as noble from '@abandonware/noble';
+import noble from '@abandonware/noble';
 
 export interface HapService {
   name: string;

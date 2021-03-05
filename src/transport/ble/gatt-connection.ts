@@ -3,7 +3,7 @@
  */
 
 import { OpQueue, Watcher } from './gatt-utils';
-import * as sodium from 'libsodium-wrappers';
+import sodium from 'libsodium-wrappers';
 import { Characteristic, Peripheral } from '@abandonware/noble';
 import { SessionKeys } from '../../protocol/pairing-protocol';
 

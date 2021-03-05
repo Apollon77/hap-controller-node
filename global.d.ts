@@ -1,17 +1,19 @@
 declare module 'http-parser-js' {
-  function HTTPParser(type?: string): ParserState;
-  namespace HTTPParser {
-    const REQUEST: string;
-    const RESPONSE: string;
-  }
+  export class HTTPParser {
+    static REQUEST: string;
 
-  interface ParserState {
+    static RESPONSE: string;
+
+    constructor(type?: string);
+
     info: {
       headers: string[];
       upgrade: boolean;
       statusCode?: number;
     };
+
     execute: (chunk: Buffer, start?: number, length?: number) => number;
+
     onHeadersComplete: (info: {
       versionMajor: string;
       versionMinor: string;
@@ -23,11 +25,11 @@ declare module 'http-parser-js' {
       upgrade: boolean;
       shouldKeepAlive: boolean;
     }) => void;
+
     onMessageComplete: () => void;
+
     onBody: (data: Buffer, offset: number, length: number) => void;
   }
-
-  export { HTTPParser, ParserState };
 }
 
 declare module 'node-hkdf-sync' {
