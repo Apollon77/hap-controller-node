@@ -224,8 +224,8 @@ export class OpQueue {
    * @param {function} op - Function to queue
    * @returns {Promise} Promise which resolves when the function has executed.
    */
-  queue(op: () => Promise<unknown>): Promise<unknown> {
-    const ret = new Promise((resolve, reject) => {
+  queue<T>(op: () => Promise<T>): Promise<T> {
+    const ret = new Promise<T>((resolve, reject) => {
       this._current.then(() => {
         op().then(resolve, reject);
       });

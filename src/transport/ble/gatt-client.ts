@@ -103,7 +103,7 @@ export default class GattClient extends EventEmitter {
    * @param {function} op - Function to add to the queue
    * @returns {Promise} Promise which resolves when the function is called.
    */
-  private _queueOperation(op: () => Promise<unknown>): Promise<unknown> {
+  private _queueOperation<T>(op: () => Promise<T>): Promise<T> {
     return this.queue.queue(op);
   }
 
@@ -144,7 +144,7 @@ export default class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.identify')
     );
 
-    return <Promise<void>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       const connection = new GattConnection(this.peripheral);
 
       try {
@@ -248,76 +248,74 @@ export default class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-setup')
     );
 
-    return <Promise<{ tlv: TLV; iid: number; characteristic: NobleCharacteristic }>>(
-      this._queueOperation(async () => {
-        const connection = (this._pairingConnection = new GattConnection(this.peripheral));
+    return this._queueOperation(async () => {
+      const connection = (this._pairingConnection = new GattConnection(this.peripheral));
 
-        await connection.connect();
+      await connection.connect();
 
-        const { characteristics } = await new GattUtils.Watcher(
-          this.peripheral,
-          this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
-            [serviceUuid],
-            [characteristicUuid]
-          )
-        ).getPromise();
+      const { characteristics } = await new GattUtils.Watcher(
+        this.peripheral,
+        this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
+          [serviceUuid],
+          [characteristicUuid]
+        )
+      ).getPromise();
 
-        if (characteristics.length === 0) {
-          throw new Error('pair-setup characteristic not found');
-        }
+      if (characteristics.length === 0) {
+        throw new Error('pair-setup characteristic not found');
+      }
 
-        const characteristic = characteristics[0];
-        const iid = await this._readInstanceId(characteristic);
+      const characteristic = characteristics[0];
+      const iid = await this._readInstanceId(characteristic);
 
-        const packet = await this.pairingProtocol.buildPairSetupM1();
-        const data = new Map();
-        data.set(GattConstants.Types['HAP-Param-Value'], packet);
-        data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
-        let pdu = this.gattProtocol.buildCharacteristicWriteRequest(
-          this.getNextTransactionId(),
-          iid,
-          data
-        );
-        let pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+      const packet = await this.pairingProtocol.buildPairSetupM1();
+      const data = new Map();
+      data.set(GattConstants.Types['HAP-Param-Value'], packet);
+      data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
+      let pdu = this.gattProtocol.buildCharacteristicWriteRequest(
+        this.getNextTransactionId(),
+        iid,
+        data
+      );
+      let pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+
+      if (pdus.length === 0) {
+        throw new Error('M1: No response');
+      }
+
+      let response = pdus[0];
+      let status = response.readUInt8(2);
+      if (status !== 0) {
+        throw new Error(`M1: Got error status: ${status}`);
+      }
+
+      if (response.length < 5) {
+        pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
+        pdus = await connection.writeCharacteristic(characteristic, [pdu]);
 
         if (pdus.length === 0) {
-          throw new Error('M1: No response');
+          throw new Error('M2: No response');
         }
 
-        let response = pdus[0];
-        let status = response.readUInt8(2);
+        response = pdus[0];
+        status = response.readUInt8(2);
         if (status !== 0) {
-          throw new Error(`M1: Got error status: ${status}`);
+          throw new Error(`M2: Got error status: ${status}`);
         }
+      }
 
-        if (response.length < 5) {
-          pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
-          pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+      const body = decodeBuffer(response.slice(5, response.length));
 
-          if (pdus.length === 0) {
-            throw new Error('M2: No response');
-          }
+      if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
+        throw new Error('M2: HAP-Param-Value missing');
+      }
 
-          response = pdus[0];
-          status = response.readUInt8(2);
-          if (status !== 0) {
-            throw new Error(`M2: Got error status: ${status}`);
-          }
-        }
+      const tlv = await this.pairingProtocol.parsePairSetupM2(
+        body.get(GattConstants.Types['HAP-Param-Value'])!
+      );
 
-        const body = decodeBuffer(response.slice(5, response.length));
-
-        if (!body.has(GattConstants.Types['HAP-Param-Value'])) {
-          throw new Error('M2: HAP-Param-Value missing');
-        }
-
-        const tlv = await this.pairingProtocol.parsePairSetupM2(
-          body.get(GattConstants.Types['HAP-Param-Value'])!
-        );
-
-        return { tlv, iid, characteristic };
-      })
-    );
+      return { tlv, iid, characteristic };
+    });
   }
 
   /**
@@ -340,7 +338,7 @@ export default class GattClient extends EventEmitter {
       throw new Error('No pairing connection');
     }
 
-    return <Promise<void>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       const connection = this._pairingConnection!;
       const protocol = this.pairingProtocol;
 
@@ -705,7 +703,7 @@ export default class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
     );
 
-    return <Promise<void>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       const connection = new GattConnection(this.peripheral);
 
       try {
@@ -804,7 +802,7 @@ export default class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
     );
 
-    return <Promise<void>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       const connection = new GattConnection(this.peripheral);
 
       try {
@@ -896,7 +894,7 @@ export default class GattClient extends EventEmitter {
       Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
     );
 
-    return <Promise<TLV>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       const connection = new GattConnection(this.peripheral);
 
       try {
@@ -991,7 +989,7 @@ export default class GattClient extends EventEmitter {
     const serviceInstanceIdUuid = GattUtils.uuidToNobleUuid(GattConstants.ServiceInstanceIdUuid);
     const serviceSignatureUuid = GattUtils.uuidToNobleUuid(GattConstants.ServiceSignatureUuid);
 
-    return <Promise<Accessories>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       const database: Accessories = {
         accessories: [
           {
@@ -1026,7 +1024,7 @@ export default class GattClient extends EventEmitter {
             continue;
           }
 
-          lastOp = <Promise<void>>queue.queue(async () => {
+          lastOp = queue.queue(async () => {
             const data = await new GattUtils.Watcher(
               this.peripheral,
               characteristic.readAsync()
@@ -1058,7 +1056,7 @@ export default class GattClient extends EventEmitter {
 
         const characteristics: { characteristic: NobleCharacteristic; iid: number }[] = [];
         for (const characteristic of allCharacteristics) {
-          lastOp = <Promise<void>>queue.queue(async () => {
+          lastOp = queue.queue(async () => {
             try {
               const iid = await this._readInstanceId(characteristic);
               const serviceType = GattUtils.nobleUuidToUuid(
@@ -1102,7 +1100,7 @@ export default class GattClient extends EventEmitter {
               c.iid
             );
 
-            lastOp = <Promise<void>>queue.queue(async () => {
+            lastOp = queue.queue(async () => {
               const pdus = await connection.writeCharacteristic(c.characteristic, [pdu]);
               if (pdus.length === 0) {
                 return;
@@ -1302,7 +1300,7 @@ export default class GattClient extends EventEmitter {
               iid
             );
 
-            lastOp = <Promise<void>>queue.queue(async () => {
+            lastOp = queue.queue(async () => {
               const pdus = await connection!.writeCharacteristic(c, [pdu]);
               if (pdus.length === 0) {
                 throw new Error('No sgnature read response');
@@ -1497,7 +1495,7 @@ export default class GattClient extends EventEmitter {
             );
           }
 
-          lastOp = <Promise<void>>queue.queue(async () => {
+          lastOp = queue.queue(async () => {
             try {
               const pdus = await connection!.writeCharacteristic(c, [pdu]);
               if (pdus.length === 0) {
@@ -1548,7 +1546,7 @@ export default class GattClient extends EventEmitter {
       return fn();
     }
 
-    return <Promise<{ characteristics: CharacteristicObject[] }>>this._queueOperation(fn);
+    return this._queueOperation(fn);
   }
 
   /**
@@ -1561,7 +1559,7 @@ export default class GattClient extends EventEmitter {
   setCharacteristics(
     values: { characteristicUuid: string; serviceUuid: string; iid: number; value: unknown }[]
   ): Promise<void> {
-    return <Promise<void>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       const connection = new GattConnection(this.peripheral);
 
       try {
@@ -1602,7 +1600,7 @@ export default class GattClient extends EventEmitter {
             data
           );
 
-          lastOp = <Promise<void>>queue.queue(async () => {
+          lastOp = queue.queue(async () => {
             await connection.writeCharacteristic(characteristic, [pdu]);
           });
         }
@@ -1635,7 +1633,7 @@ export default class GattClient extends EventEmitter {
       format: string;
     }[]
   ): Promise<GattConnection> {
-    return <Promise<GattConnection>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       for (const c of characteristics) {
         c.characteristicUuid = GattUtils.uuidToNobleUuid(c.characteristicUuid);
         c.serviceUuid = GattUtils.uuidToNobleUuid(c.serviceUuid);
@@ -1667,7 +1665,7 @@ export default class GattClient extends EventEmitter {
           throw new Error(`Characteristic not found: ${JSON.stringify(c)}`);
         }
 
-        lastOp = <Promise<void>>queue.queue(async () => {
+        lastOp = queue.queue(async () => {
           await new GattUtils.Watcher(
             this.peripheral,
             characteristic.subscribeAsync()
@@ -1729,7 +1727,7 @@ export default class GattClient extends EventEmitter {
         throw new Error(`Characteristic not found: ${JSON.stringify(c)}`);
       }
 
-      lastOp = <Promise<void>>queue.queue(async () => {
+      lastOp = queue.queue(async () => {
         await new GattUtils.Watcher(
           this.peripheral,
           characteristic.unsubscribeAsync()

@@ -37,7 +37,7 @@ export default class GattConnection {
    * @param {function} op - Function to add to the queue
    * @returns {Promise} Promise which resolves when the function is called.
    */
-  private _queueOperation(op: () => Promise<unknown>): Promise<unknown> {
+  private _queueOperation<T>(op: () => Promise<T>): Promise<T> {
     return this.queue.queue(op);
   }
 
@@ -151,7 +151,7 @@ export default class GattConnection {
    *                    writes are sent.
    */
   writeCharacteristic(characteristic: Characteristic, pdus: Buffer[]): Promise<Buffer[]> {
-    return <Promise<Buffer[]>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       await sodium.ready;
       await this.connect();
 
@@ -236,7 +236,7 @@ export default class GattConnection {
    * @returns {Promise} Promise which resolves to a list of PDUs.
    */
   readCharacteristic(characteristic: Characteristic): Promise<Buffer[]> {
-    return <Promise<Buffer[]>>this._queueOperation(async () => {
+    return this._queueOperation(async () => {
       await this.connect();
       return this._readCharacteristicInner(characteristic, []);
     });
