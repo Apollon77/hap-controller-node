@@ -1257,8 +1257,8 @@ export default class GattClient extends EventEmitter {
         const { characteristics: discoveredCharacteristics } = await new GattUtils.Watcher(
           this.peripheral,
           this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
-            characteristics.map((c) => c.serviceUuid),
-            characteristics.map((c) => c.characteristicUuid)
+            Array.from(new Set(characteristics.map((c) => c.serviceUuid))),
+            Array.from(new Set(characteristics.map((c) => c.characteristicUuid)))
           )
         ).getPromise();
 
@@ -1575,8 +1575,8 @@ export default class GattClient extends EventEmitter {
         const { characteristics } = await new GattUtils.Watcher(
           this.peripheral,
           this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
-            values.map((c) => c.serviceUuid),
-            values.map((c) => c.characteristicUuid)
+            Array.from(new Set(values.map((c) => c.serviceUuid))),
+            Array.from(new Set(values.map((c) => c.characteristicUuid)))
           )
         ).getPromise();
 
@@ -1645,8 +1645,8 @@ export default class GattClient extends EventEmitter {
       const { characteristics: discoveredCharacteristics } = await new GattUtils.Watcher(
         this.peripheral,
         this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
-          characteristics.map((c) => c.serviceUuid),
-          characteristics.map((c) => c.characteristicUuid)
+          Array.from(new Set(characteristics.map((c) => c.serviceUuid))),
+          Array.from(new Set(characteristics.map((c) => c.characteristicUuid)))
         )
       ).getPromise();
 
@@ -1707,8 +1707,8 @@ export default class GattClient extends EventEmitter {
     const { characteristics: discoveredCharacteristics } = await new GattUtils.Watcher(
       this.peripheral,
       this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
-        characteristics.map((c) => c.serviceUuid),
-        characteristics.map((c) => c.characteristicUuid)
+        Array.from(new Set(characteristics.map((c) => c.serviceUuid))),
+        Array.from(new Set(characteristics.map((c) => c.characteristicUuid)))
       )
     ).getPromise();
 
