@@ -9,7 +9,8 @@
 export const StatusCodes = {
   0: 'This specifies a success for the request.',
   [-70401]: 'Request denied due to insufficient privileges.',
-  [-70402]: 'Unable to communicate with requested service, e.g. the power to the accessory was turned off.',
+  [-70402]:
+    'Unable to communicate with requested service, e.g. the power to the accessory was turned off.',
   [-70403]: 'Resource is busy, try again.',
   [-70404]: 'Cannot write to read only characteristic.',
   [-70405]: 'Cannot read from a write only characteristic.',

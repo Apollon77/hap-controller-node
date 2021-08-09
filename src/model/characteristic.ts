@@ -171,7 +171,8 @@ const CharacteristicMapByUuid = {
   [`00000124${UuidSuffix}`]: 'public.hap.characteristic.target-list',
   [`00000126${UuidSuffix}`]: 'public.hap.characteristic.button-event',
   [`00000128${UuidSuffix}`]: 'public.hap.characteristic.selected-audio-stream-configuration',
-  [`00000130${UuidSuffix}`]: 'public.hap.characteristic.supported-data-stream-transport-configuration',
+  [`00000130${UuidSuffix}`]:
+    'public.hap.characteristic.supported-data-stream-transport-configuration',
   [`00000131${UuidSuffix}`]: 'public.hap.characteristic.setup-data-stream-transport',
   [`00000132${UuidSuffix}`]: 'public.hap.characteristic.siri-input-type',
   [`00000134${UuidSuffix}`]: 'public.hap.characteristic.target-visibility-state',
