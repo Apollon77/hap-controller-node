@@ -1,6 +1,6 @@
 {
   "name": "hap-controller",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Library to implement a HAP (HomeKit) controller",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/mrstegeman/hap-controller-node#readme",
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-12",
+    "@abandonware/noble": "^1.9.2-14",
     "dnssd": "^0.4.1",
     "fast-srp-hap": "^2.0.3",
     "http-parser-js": "^0.5.3",
@@ -36,22 +36,22 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "@types/dnssd": "^0.4.1",
+    "@types/dnssd": "^0.4.2",
     "@types/libsodium-wrappers": "^0.7.9",
-    "@types/node": "^14.14.31",
-    "@types/uuid": "^8.3.0",
-    "@typescript-eslint/eslint-plugin": "^4.16.1",
-    "@typescript-eslint/parser": "^4.16.1",
-    "babel-eslint": "^10.1.0",
-    "eslint": "^7.21.0",
-    "eslint-config-prettier": "^8.1.0",
+    "@types/node": "^16.4.13",
+    "@types/uuid": "^8.3.1",
+    "@typescript-eslint/eslint-plugin": "^4.29.0",
+    "@typescript-eslint/parser": "^4.29.0",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.3.0",
     "event-to-promise": "^0.8.0",
-    "jest": "^26.6.3",
-    "prettier": "^2.2.1",
-    "typescript": "^4.2.3"
+    "jest": "^27.0.6",
+    "prettier": "^2.3.2",
+    "typescript": "^4.3.5"
   },
   "files": [
     "LICENSE",
-    "lib"
+    "lib",
+    "examples"
   ]
 }
