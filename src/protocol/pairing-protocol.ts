@@ -30,6 +30,11 @@ const Methods = {
   PairResume: 6,
 };
 
+const PairMethods = {
+  PairSetup: Methods.PairSetup,
+  PairSetupWithAuth: Methods.PairSetupWithAuth,
+};
+
 /**
  * See Table 5-4
  */
@@ -80,12 +85,12 @@ const Types = {
 /**
  * See Table 5-7
  */
-/*
+
 const PairingTypeFlags = {
   kPairingFlag_Transient: 0x00000010,
   kPairingFlag_Split: 0x01000000,
 };
-*/
+export { PairMethods, PairingTypeFlags };
 
 export interface SessionKeys {
   AccessoryToControllerKey: Buffer;
@@ -217,12 +222,18 @@ export default class PairingProtocol {
   /**
    * Build step 1 of the pair setup process.
    *
+   * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
+   * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves to a Buffer.
    */
-  async buildPairSetupM1(): Promise<Buffer> {
+  // eslint-disable-next-line max-len
+  async buildPairSetupM1(pairMethod = PairMethods.PairSetupWithAuth, pairFlags = 0): Promise<Buffer> {
     const data = new Map();
     data.set(Types.kTLVType_State, Buffer.from([Steps.M1]));
-    data.set(Types.kTLVType_Method, Buffer.from([Methods.PairSetupWithAuth]));
+    data.set(Types.kTLVType_Method, Buffer.from([pairMethod]));
+    if (pairMethod === PairMethods.PairSetup && pairFlags) {
+      data.set(Types.kTLVType_Flags, Buffer.from([pairFlags]));
+    }
     const packet = encodeObject(data);
     return packet;
   }
