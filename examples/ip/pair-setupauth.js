@@ -5,11 +5,11 @@ const discovery = new IPDiscovery();
 const pin = 'XXX-YY-ZZZ';
 
 discovery.on('serviceUp', (service) => {
-  console.log('Found device! ', service);
+  console.log('Found device! ', service.name);
 
   const client = new HttpClient(service.id, service.address, service.port);
   client
-    .pairSetup(pin, PairingMethods.PairSetup, 0)
+    .pairSetup(pin/*, PairingMethods.PairSetupWithAuth*/)
     .then(() => {
       console.log(service.name, ' Paired! Keep the following pairing data safe:');
       console.log(JSON.stringify(client.getLongTermData(), null, 2));
