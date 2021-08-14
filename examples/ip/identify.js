@@ -7,7 +7,7 @@ discovery.on('serviceUp', (service) => {
   const client = new HttpClient(service.id, service.address, service.port);
   client
     .identify()
-    .then(() => console.log(service.name, ': Done!'))
-    .catch((e) => console.error(service.name, ': ', e));
+    .then(() => console.log(`${service.name}: Done!`))
+    .catch((e) => console.error(`${service.name}:`, e));
 });
 discovery.start();
