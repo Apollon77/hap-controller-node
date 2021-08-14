@@ -1,4 +1,4 @@
-const { HttpClient, IPDiscovery, PairingMethods } = require('hap-controller');
+const { HttpClient, IPDiscovery } = require('hap-controller');
 
 const discovery = new IPDiscovery();
 
@@ -9,7 +9,7 @@ discovery.on('serviceUp', (service) => {
 
   const client = new HttpClient(service.id, service.address, service.port);
   client
-    .pairSetup(pin/*, PairingMethods.PairSetupWithAuth*/)
+    .pairSetup(pin) // same as when using second parameter with PairingMethods.PairSetupWithAuth
     .then(() => {
       console.log(service.name, ' Paired! Keep the following pairing data safe:');
       console.log(JSON.stringify(client.getLongTermData(), null, 2));

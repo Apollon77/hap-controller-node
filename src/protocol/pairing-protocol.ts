@@ -226,8 +226,10 @@ export default class PairingProtocol {
    * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves to a Buffer.
    */
-  // eslint-disable-next-line max-len
-  async buildPairSetupM1(pairMethod = PairMethods.PairSetupWithAuth, pairFlags = 0): Promise<Buffer> {
+  async buildPairSetupM1(
+    pairMethod = PairMethods.PairSetupWithAuth,
+    pairFlags = 0
+  ): Promise<Buffer> {
     const data = new Map();
     data.set(Types.kTLVType_State, Buffer.from([Steps.M1]));
     data.set(Types.kTLVType_Method, Buffer.from([pairMethod]));

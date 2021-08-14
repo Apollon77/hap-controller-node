@@ -4,8 +4,11 @@
 
 import { EventEmitter } from 'events';
 import HttpConnection from './http-connection';
-import PairingProtocol, { PairingData, SessionKeys, PairMethods }
-  from '../../protocol/pairing-protocol';
+import PairingProtocol, {
+  PairingData,
+  SessionKeys,
+  PairMethods,
+} from '../../protocol/pairing-protocol';
 import { TLV } from '../../model/tlv';
 
 export interface GetCharacteristicsOptions {
@@ -132,8 +135,11 @@ export default class HttpClient extends EventEmitter {
    * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves when pairing is complete.
    */
-  // eslint-disable-next-line max-len
-  async pairSetup(pin: string, pairMethod = PairMethods.PairSetupWithAuth, pairFlags = 0): Promise<void> {
+  async pairSetup(
+    pin: string,
+    pairMethod = PairMethods.PairSetupWithAuth,
+    pairFlags = 0
+  ): Promise<void> {
     await this.finishPairing(await this.startPairing(pairMethod, pairFlags), pin);
   }
 

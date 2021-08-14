@@ -8,8 +8,7 @@ import GattConnection from './gatt-connection';
 import * as GattConstants from './gatt-constants';
 import GattProtocol from './gatt-protocol';
 import * as GattUtils from './gatt-utils';
-import PairingProtocol, { PairingData, PairMethods }
-  from '../../protocol/pairing-protocol';
+import PairingProtocol, { PairingData, PairMethods } from '../../protocol/pairing-protocol';
 import * as Service from '../../model/service';
 import { decodeBuffer, TLV } from '../../model/tlv';
 import {
@@ -243,8 +242,10 @@ export default class GattClient extends EventEmitter {
    * @returns {Promise} Promise which resolves to opaque
    * pairing data when complete.
    */
-  // eslint-disable-next-line max-len
-  async startPairing(pairMethod = PairMethods.PairSetupWithAuth, pairFlags = 0): Promise<{ tlv: TLV; iid: number; characteristic: NobleCharacteristic }> {
+  async startPairing(
+    pairMethod = PairMethods.PairSetupWithAuth,
+    pairFlags = 0
+  ): Promise<{ tlv: TLV; iid: number; characteristic: NobleCharacteristic }> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -465,8 +466,11 @@ export default class GattClient extends EventEmitter {
    * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves when pairing is complete.
    */
-  // eslint-disable-next-line max-len
-  async pairSetup(pin: string, pairMethod = PairMethods.PairSetupWithAuth, pairFlags = 0): Promise<void> {
+  async pairSetup(
+    pin: string,
+    pairMethod = PairMethods.PairSetupWithAuth,
+    pairFlags = 0
+  ): Promise<void> {
     return await this.finishPairing(await this.startPairing(pairMethod, pairFlags), pin);
   }
 

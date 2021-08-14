@@ -1,5 +1,4 @@
-//const { HttpClient, IPDiscovery } = require('hap-controller');
-const { HttpClient, IPDiscovery } = require('../../lib/index');
+const { HttpClient, IPDiscovery } = require('hap-controller');
 const discovery = new IPDiscovery();
 
 discovery.on('serviceUp', (service) => {
