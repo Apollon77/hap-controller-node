@@ -5,7 +5,7 @@ const discovery = new IPDiscovery();
 const pin = 'XXX-YY-ZZZ';
 
 discovery.on('serviceUp', (service) => {
-  console.log('Found device! ', service);
+  console.log(`Found device: ${service.name}`);
 
   const client = new HttpClient(service.id, service.address, service.port);
   client
