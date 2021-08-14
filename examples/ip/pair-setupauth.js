@@ -11,7 +11,7 @@ discovery.on('serviceUp', (service) => {
   client
     .pairSetup(pin) // same as when using second parameter with PairingMethods.PairSetupWithAuth
     .then(() => {
-      console.log(service.name, ' Paired! Keep the following pairing data safe:');
+      console.log(`${service.name} paired! Keep the following pairing data safe:`);
       console.log(JSON.stringify(client.getLongTermData(), null, 2));
     })
     .catch((e) => console.error(service.name, ' ', e));
