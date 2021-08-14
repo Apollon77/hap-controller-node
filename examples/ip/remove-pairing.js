@@ -11,7 +11,7 @@ const pairingData = {
 };
 
 discovery.on('serviceUp', (service) => {
-  console.log(service.name, ' Found device!');
+  console.log(`Found device: ${service.name}`);
 
   const client = new HttpClient(service.id, service.address, service.port, pairingData);
 
