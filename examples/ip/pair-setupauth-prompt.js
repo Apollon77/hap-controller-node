@@ -15,7 +15,7 @@ discovery.on('serviceUp', async (service) => {
   const data = await client.startPairing();
   readline.question('Enter PIN: ', async (pin) => {
     await client.finishPairing(data, pin);
-    console.log(service.name, ' Paired! Keep the following pairing data safe:');
+    console.log(`${service.name} paired! Keep the following pairing data safe:`);
     console.log(JSON.stringify(client.getLongTermData(), null, 2));
   });
 });
