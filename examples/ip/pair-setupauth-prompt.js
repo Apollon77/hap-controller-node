@@ -8,7 +8,7 @@ const { HttpClient, IPDiscovery } = require('../../lib');
 const discovery = new IPDiscovery();
 
 discovery.on('serviceUp', async (service) => {
-  console.log('Found device! ', service.name);
+  console.log(`Found device: ${service.name}`);
 
   const client = new HttpClient(service.id, service.address, service.port);
 
