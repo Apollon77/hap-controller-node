@@ -17,7 +17,7 @@ discovery.on('serviceUp', (service) => {
 
   client
     .removePairing(client.pairingProtocol.iOSDevicePairingID)
-    .then(() => console.log(service.name, ' Done!'))
+    .then(() => console.log(`${service.name}: done!`))
     .catch((e) => console.error(service.name, ' ', e));
 });
 discovery.start();
