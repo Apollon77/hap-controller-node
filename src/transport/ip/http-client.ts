@@ -4,7 +4,11 @@
 
 import { EventEmitter } from 'events';
 import HttpConnection from './http-connection';
-import PairingProtocol, { PairingData, SessionKeys } from '../../protocol/pairing-protocol';
+import PairingProtocol, {
+  PairingData,
+  SessionKeys,
+  PairMethods,
+} from '../../protocol/pairing-protocol';
 import { TLV } from '../../model/tlv';
 
 export interface GetCharacteristicsOptions {
@@ -71,14 +75,16 @@ export default class HttpClient extends EventEmitter {
    * Begins the pairing process. For devices with random pins, this
    * will cause it to show the pin on the screen.
    *
+   * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
+   * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves to opaque
    * pairing data when complete.
    */
-  async startPairing(): Promise<TLV> {
+  async startPairing(pairMethod = PairMethods.PairSetupWithAuth, pairFlags = 0): Promise<TLV> {
     const connection = (this._pairingConnection = new HttpConnection(this.address, this.port));
 
     // M1
-    const m1 = await this.pairingProtocol.buildPairSetupM1();
+    const m1 = await this.pairingProtocol.buildPairSetupM1(pairMethod, pairFlags);
     const m2 = await connection.post('/pair-setup', m1, 'application/pairing+tlv8');
 
     // M2
@@ -125,10 +131,16 @@ export default class HttpClient extends EventEmitter {
    * Attempt to pair with a device.
    *
    * @param {string} pin - The pairing PIN
+   * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
+   * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves when pairing is complete.
    */
-  async pairSetup(pin: string): Promise<void> {
-    await this.finishPairing(await this.startPairing(), pin);
+  async pairSetup(
+    pin: string,
+    pairMethod = PairMethods.PairSetupWithAuth,
+    pairFlags = 0
+  ): Promise<void> {
+    await this.finishPairing(await this.startPairing(pairMethod, pairFlags), pin);
   }
 
   /**

@@ -1,6 +1,7 @@
 import BLEDiscovery from './transport/ble/ble-discovery';
 import GattClient from './transport/ble/gatt-client';
 import HttpClient from './transport/ip/http-client';
+import { PairMethods, PairingTypeFlags } from './protocol/pairing-protocol';
 import IPDiscovery from './transport/ip/ip-discovery';
 import * as Category from './model/category';
 import * as Characteristic from './model/characteristic';
@@ -22,4 +23,6 @@ export {
   IPDiscovery,
   Service,
   TLV,
+  PairMethods,
+  PairingTypeFlags,
 };

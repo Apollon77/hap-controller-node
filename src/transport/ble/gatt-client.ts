@@ -8,7 +8,7 @@ import GattConnection from './gatt-connection';
 import * as GattConstants from './gatt-constants';
 import GattProtocol from './gatt-protocol';
 import * as GattUtils from './gatt-utils';
-import PairingProtocol, { PairingData } from '../../protocol/pairing-protocol';
+import PairingProtocol, { PairingData, PairMethods } from '../../protocol/pairing-protocol';
 import * as Service from '../../model/service';
 import { decodeBuffer, TLV } from '../../model/tlv';
 import {
@@ -237,10 +237,15 @@ export default class GattClient extends EventEmitter {
    * Begins the pairing process. For devices with random pins, this
    * will cause it to show the pin on the screen.
    *
+   * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
+   * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves to opaque
    * pairing data when complete.
    */
-  async startPairing(): Promise<{ tlv: TLV; iid: number; characteristic: NobleCharacteristic }> {
+  async startPairing(
+    pairMethod = PairMethods.PairSetupWithAuth,
+    pairFlags = 0
+  ): Promise<{ tlv: TLV; iid: number; characteristic: NobleCharacteristic }> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -268,7 +273,7 @@ export default class GattClient extends EventEmitter {
       const characteristic = characteristics[0];
       const iid = await this._readInstanceId(characteristic);
 
-      const packet = await this.pairingProtocol.buildPairSetupM1();
+      const packet = await this.pairingProtocol.buildPairSetupM1(pairMethod, pairFlags);
       const data = new Map();
       data.set(GattConstants.Types['HAP-Param-Value'], packet);
       data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
@@ -457,10 +462,16 @@ export default class GattClient extends EventEmitter {
    * Attempt to pair with a device.
    *
    * @param {string} pin - The pairing PIN
+   * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
+   * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves when pairing is complete.
    */
-  async pairSetup(pin: string): Promise<void> {
-    return await this.finishPairing(await this.startPairing(), pin);
+  async pairSetup(
+    pin: string,
+    pairMethod = PairMethods.PairSetupWithAuth,
+    pairFlags = 0
+  ): Promise<void> {
+    return await this.finishPairing(await this.startPairing(pairMethod, pairFlags), pin);
   }
 
   /**

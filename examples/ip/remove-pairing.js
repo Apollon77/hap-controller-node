@@ -11,13 +11,13 @@ const pairingData = {
 };
 
 discovery.on('serviceUp', (service) => {
-  console.log('Found device!');
+  console.log(`Found device: ${service.name}`);
 
   const client = new HttpClient(service.id, service.address, service.port, pairingData);
 
   client
     .removePairing(client.pairingProtocol.iOSDevicePairingID)
-    .then(() => console.log('Done!'))
-    .catch((e) => console.error(e));
+    .then(() => console.log(`${service.name}: done!`))
+    .catch((e) => console.error(`${service.name}:`, e));
 });
 discovery.start();
