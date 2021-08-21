@@ -48,7 +48,7 @@ export default class HttpClient extends EventEmitter {
   /**
    * Get the data (keys) that needs to be stored long-term.
    *
-   * @returns {Object} Object containing the keys that should be stored.
+   * @returns {PairingData} Object containing the keys that should be stored.
    */
   getLongTermData(): PairingData | null {
     return this.pairingProtocol.getLongTermData();
@@ -58,6 +58,7 @@ export default class HttpClient extends EventEmitter {
    * Run the identify routine on a device.
    *
    * This can only be done before pairing.
+   * If the device is already paired the method returns an error (Identify failed with status 400)
    *
    * @returns {Promise} Promise which resolves if identify succeeded.
    */
@@ -77,8 +78,7 @@ export default class HttpClient extends EventEmitter {
    *
    * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
    * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
-   * @returns {Promise} Promise which resolves to opaque
-   * pairing data when complete.
+   * @returns {Promise} Promise which resolves to opaque pairing data when complete.
    */
   async startPairing(pairMethod = PairMethods.PairSetupWithAuth, pairFlags = 0): Promise<TLV> {
     const connection = (this._pairingConnection = new HttpConnection(this.address, this.port));
@@ -94,9 +94,9 @@ export default class HttpClient extends EventEmitter {
   /**
    * Finishes a pairing process that began with startPairing()
    *
-   * @param {Object} pairingData - The pairing data returned from startPairing()
-   * @param {string} pin - The pairing PIN
-   * @returns {Promise} Promise which resolvew when pairing is complete.
+   * @param {TLV} pairingData - The pairing data returned from startPairing()
+   * @param {string} pin - The pairing PIN, needs to be formatted as XXX-XX-XXX
+   * @returns {Promise} Promise which resolve when pairing is complete.
    */
   async finishPairing(pairingData: TLV, pin: string): Promise<void> {
     if (!pairingData || !this._pairingConnection) {
@@ -130,7 +130,7 @@ export default class HttpClient extends EventEmitter {
   /**
    * Attempt to pair with a device.
    *
-   * @param {string} pin - The pairing PIN
+   * @param {string} pin - The pairing PIN, needs to be formatted as XXX-XX-XXX
    * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
    * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves when pairing is complete.
@@ -146,6 +146,7 @@ export default class HttpClient extends EventEmitter {
   /**
    * Method used internally to generate session keys for a connection.
    *
+   * @private
    * @param {Object} connection - Existing HttpConnection object
    * @returns {Promise} Promise which resolves to the generated session keys.
    */
@@ -257,8 +258,8 @@ export default class HttpClient extends EventEmitter {
   /**
    * Read a set of characteristics.
    *
-   * @param {string[]} characteristics - List of characteristics ID to get
-   * @param {Object?} options - Options dictating what metadata to fetch
+   * @param {string[]} characteristics - List of characteristics ID to get in form ["iid.aid", ...]
+   * @param {GetCharacteristicsOptions?} options - Options dictating what metadata to fetch
    * @returns {Promise} Promise which resolves to the JSON document.
    */
   async getCharacteristics(
@@ -306,7 +307,7 @@ export default class HttpClient extends EventEmitter {
   /**
    * Modify a set of characteristics.
    *
-   * @param {Object} characteristics - Characteristic IDs to set, id -> val
+   * @param {Object} characteristics - Characteristic IDs to set in form id -> val
    * @returns {Promise} Promise which resolves to the JSON document.
    */
   async setCharacteristics(
@@ -344,8 +345,10 @@ export default class HttpClient extends EventEmitter {
   /**
    * Subscribe to events for a set of characteristics.
    *
-   * @param {String[]} characteristics - List of characteristic IDs to subscribe
-   *                   to
+   * @fires HttpClient#event
+   * @fires HttpClient#disconnect
+   * @param {String[]} characteristics - List of characteristic IDs to subscribe to,
+   *                                       in form ["iid.aid", ...]
    * @returns {Promise} Promise which resolves to the HttpConnection object.
    */
   async subscribeCharacteristics(characteristics: string[]): Promise<HttpConnection> {
@@ -367,10 +370,21 @@ export default class HttpClient extends EventEmitter {
     }
 
     connection.on('event', (ev) => {
+      /**
+       * Event emitted with characteristic value changes
+       *
+       * @event HttpClient#event
+       */
       this.emit('event', JSON.parse(ev));
     });
 
     connection.on('disconnect', () => {
+      /**
+       * Event emitted when subscription connection got disconnected.
+       * You need to manually resubscribe!
+       *
+       * @event HttpClient#disconnect
+       */
       this.emit('disconnect', {});
     });
 
@@ -393,7 +407,7 @@ export default class HttpClient extends EventEmitter {
    *
    * @param {String[]} characteristics - List of characteristic IDs to
    *                   unsubscribe from
-   * @param {Object} connection - Existing HttpConnection object
+   * @param {HttpConnection} connection - Existing HttpConnection object
    * @returns {Promise} Promise which resolves when the procedure is done.
    */
   async unsubscribeCharacteristics(
