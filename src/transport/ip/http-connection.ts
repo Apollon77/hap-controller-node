@@ -339,7 +339,7 @@ export default class HttpConnection extends EventEmitter {
 
         debug(
           `${this.address}:${this.port} ` +
-          `Response ${response.statusCode} with ${response.body.length} byte data`
+            `Response ${response.statusCode} with ${response.body.length} byte data`
         );
         resolve(response);
       });
@@ -388,7 +388,7 @@ export default class HttpConnection extends EventEmitter {
 
         debug(
           `${this.address}:${this.port} ` +
-          `Response ${response.statusCode} with ${response.body.length} byte data`
+            `Response ${response.statusCode} with ${response.body.length} byte data`
         );
         resolve(response);
       });
