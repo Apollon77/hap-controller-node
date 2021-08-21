@@ -9,7 +9,7 @@ import { PairMethods } from '../../protocol/pairing-protocol';
 /**
  * Service data structure returned by discovery methods
  */
-export interface HapService {
+export interface HapServiceIp {
   /**
    * name: the Bonjour name of the HomeKit accessory (i.e. Testsensor1._hap._tcp.local.)
    */
@@ -135,7 +135,7 @@ export default class IPDiscovery extends EventEmitter {
 
   private iface?: string;
 
-  private services: Map<string, HapService>;
+  private services: Map<string, HapServiceIp>;
 
   /**
    * Initialize the IPDiscovery object.
@@ -160,7 +160,7 @@ export default class IPDiscovery extends EventEmitter {
    *
    * @param {Object} service - Service record to convert
    */
-  private static _serviceToHapService(service: Service): HapService {
+  private static _serviceToHapService(service: Service): HapServiceIp {
     const sf = parseInt(service.txt.sf, 10);
     return {
       name: service.name,
@@ -182,10 +182,10 @@ export default class IPDiscovery extends EventEmitter {
   /**
    * Get PairMethod to use for pairing from the data received during discovery
    *
-   * @param {HapService} service Discovered service object to check
+   * @param {HapServiceIp} service Discovered service object to check
    * @returns {Promise<number>} Promise which resolves with the PairMethod to use
    */
-  public static async getPairMethod(service: HapService): Promise<number> {
+  public static async getPairMethod(service: HapServiceIp): Promise<number> {
     // async to be compatible with the BLE variant
     return service.ff & DiscoveryPairingFeatureFlags.SupportsAppleAuthenticationCoprocessor
       ? PairMethods.PairSetupWithAuth
@@ -213,7 +213,7 @@ export default class IPDiscovery extends EventEmitter {
        * New device discovered event
        *
        * @event IPDiscovery#serviceUp
-       * @type HapService
+       * @type HapServiceIp
        */
       this.emit('serviceUp', hapService);
     });
@@ -224,7 +224,7 @@ export default class IPDiscovery extends EventEmitter {
        * Device offline event
        *
        * @event IPDiscovery#serviceDown
-       * @type HapService
+       * @type HapServiceIp
        */
       this.emit('serviceDown', hapService);
     });
@@ -235,7 +235,7 @@ export default class IPDiscovery extends EventEmitter {
        * Device data changed event
        *
        * @event IPDiscovery#serviceChanged
-       * @type HapService
+       * @type HapServiceIp
        */
       this.emit('serviceChanged', hapService);
     });
@@ -245,9 +245,9 @@ export default class IPDiscovery extends EventEmitter {
   /**
    * List the currently known services.
    *
-   * @returns {HapService[]} Array of services
+   * @returns {HapServiceIp[]} Array of services
    */
-  list(): HapService[] {
+  list(): HapServiceIp[] {
     return Array.from(this.services.values());
   }
 

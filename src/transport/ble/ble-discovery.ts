@@ -16,7 +16,7 @@ const DiscoveryPairingStatusFlags = {
 
 export { DiscoveryPairingStatusFlags };
 
-export interface HapService {
+export interface HapServiceBle {
   name: string;
   /**
    * CoID: Company Identifier code, 0x004C (Apple,Inc.) ,in little endian format.
@@ -118,7 +118,7 @@ export default class BLEDiscovery extends EventEmitter {
 
   private allowDuplicates: boolean;
 
-  private services: Map<string, HapService>;
+  private services: Map<string, HapServiceBle>;
 
   private handleStateChange: (state: string) => void;
 
@@ -169,10 +169,10 @@ export default class BLEDiscovery extends EventEmitter {
   /**
    * Get PairMethod to use for pairing from the data received during discovery
    *
-   * @param {HapService} service Discovered service object to check
+   * @param {HapServiceBle} service Discovered service object to check
    * @returns {Promise<number>} Promise which resolves with the PairMethod to use
    */
-  public static async getPairMethod(service: HapService): Promise<number> {
+  public static async getPairMethod(service: HapServiceBle): Promise<number> {
     const client = new GattClient(service.DeviceID, service.peripheral);
     return client.getPairingMethod();
   }
@@ -182,7 +182,7 @@ export default class BLEDiscovery extends EventEmitter {
    *
    * @returns {Object[]} Array of services
    */
-  list(): HapService[] {
+  list(): HapServiceBle[] {
     return Array.from(this.services.values());
   }
 
@@ -279,7 +279,7 @@ export default class BLEDiscovery extends EventEmitter {
          * Device data changed event
          *
          * @event BLEDiscovery#serviceChanged
-         * @type HapService
+         * @type HapServiceBle
          */
         this.emit('serviceChanged', service);
       }
@@ -288,7 +288,7 @@ export default class BLEDiscovery extends EventEmitter {
        * New device discovered event
        *
        * @event BLEDiscovery#serviceUp
-       * @type HapService
+       * @type HapServiceBle
        */
       this.emit('serviceUp', service);
     }
