@@ -28,6 +28,7 @@
   "homepage": "https://github.com/mrstegeman/hap-controller-node#readme",
   "dependencies": {
     "@abandonware/noble": "^1.9.2-14",
+    "debug": "4.3.2",
     "dnssd": "^0.4.1",
     "fast-srp-hap": "^2.0.3",
     "http-parser-js": "^0.5.3",
@@ -36,6 +37,7 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
+    "@types/debug": "4.1.7",
     "@types/dnssd": "^0.4.2",
     "@types/libsodium-wrappers": "^0.7.9",
     "@types/node": "^16.4.13",
