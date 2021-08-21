@@ -35,7 +35,7 @@ export default class HttpClient extends EventEmitter {
    * @param {string} deviceId - ID of the device
    * @param {string} address - IP address of the device
    * @param {number} port - HTTP port
-   * @param {Object?} pairingData - existing pairing data
+   * @param {PairingData?} pairingData - existing pairing data
    */
   constructor(deviceId: string, address: string, port: number, pairingData?: PairingData) {
     super();
@@ -105,7 +105,7 @@ export default class HttpClient extends EventEmitter {
 
     const re = /^\d{3}-\d{2}-\d{3}$/;
     if (!re.test(pin)) {
-      throw new Error('Invalid PIN');
+      throw new Error('Invalid PIN, Make sure Format is XXX-XX-XXX');
     }
 
     const connection = this._pairingConnection;

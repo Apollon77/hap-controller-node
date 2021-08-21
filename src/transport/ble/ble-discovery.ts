@@ -4,21 +4,115 @@
 
 import { EventEmitter } from 'events';
 import noble from '@abandonware/noble';
+import { isDeepStrictEqual } from 'util';
+import GattClient from './gatt-client';
+
+/**
+ * See Table 7-43
+ */
+const DiscoveryPairingStatusFlags = {
+  AccessoryNotPaired: 0x01,
+};
+
+export { DiscoveryPairingStatusFlags };
 
 export interface HapService {
   name: string;
+  /**
+   * CoID: Company Identifier code, 0x004C (Apple,Inc.) ,in little endian format.
+   */
   CoID: number;
+  /**
+   * TY: 8 bits for Type,which shall be set to 0x11
+   */
   TY: number;
+  /**
+   * STL: 8 bits for Sub Type and Length
+   *
+   * From Specs:
+   * The 3 significant bits specify the HomeKit advertising
+   * format Sub Type and shall be set to 1, and the remaining 5 bits is the length of the remaining
+   * bytes in the manufacturer specific data which shall be set to the value 17.
+   */
   AIL: number;
+  /**
+   * SF: 8 bits for Status Flags
+   *
+   * From Specs:
+   * Bits 1-7 are reserved and shall be set to 0, Bit 0 shall reflect the value of the HAP Pairing
+   * Status Flag.
+   * see DiscoveryPairingStatusFlags
+   */
   SF: number;
+  /**
+   * Device-ID: 48-bit Device ID (”5.4 DeviceID” (page31)) of the accessory.
+   */
   DeviceID: string;
+  /**
+   * ACID: Accessory Category Identifier
+   *
+   * From Specs:
+   * 16-bit little endian unsigned Accessory Category Identifier,which indicates the category that
+   * best describes the primary function of the accessory. This must have a range of 1-65535. This
+   * must take one of the values defined in the ”13-1 Accessory Categories” (page 252).
+   * The Category Identifier must not change except during a firmware update.
+   */
   ACID: number;
+  /**
+   * GSN: 16-bit little endian unsigned Global State Number.
+   *
+   * From Specs:
+   * The Global State Number represents the state at which a required change on the accessory was
+   * last notified to the HomeKit controller. Accessories shall maintain a 16 bit monotonically
+   * increasing GSN value. This value must have a range of 1-65535 and wrap to 1 when it overflows.
+   * This value must persist across reboots, power cycles, etc. This value must be reset back to 1
+   * when factory reset or a firmware update occurs on the accessory. For more details see
+   * ”7.4.6 HAP Notifications” (page 127)
+   */
   GSN: number;
+  /**
+   * CN: Configuration Number
+   *
+   * From Specs:
+   * 8 bits for Configuration Number, with a default starting value of 1. Accessories must
+   * increment the config number after a firmware update. This value must have a range of 1-255
+   * and wrap to 1 when it overflows. This value must persist across reboots, power cycles and
+   * firmware updates.
+   */
   CN: number;
+  /**
+   * CV: 8bit little endian Compatible Version
+   *
+   * From Specs:
+   * This value shall be set to 0x02 for this version of the HAP BLE.
+   */
   CV: number;
+  /**
+   * Added in v2 of the HAP specifications but no details known
+   * SH: 4byte little endian Setup Hash to support enhanced setup payload information
+   * (see”????”(page??))
+   */
+  // SH: string;
+  /**
+   * Peripheral object used for all communication to this device
+   */
   peripheral: noble.Peripheral;
+  /**
+   * c#: the configuration number, same value as CN for convenient reasons with IP
+   */
+  'c#': number;
+  /**
+   * id: the deviceId, same value as deviceId for convenient reasons with IP
+   */
+  id: string;
 }
 
+/**
+ * Handle discovery of IP devices
+ *
+ * @fires BLEDiscovery#serviceUp
+ * @fires BLEDiscovery#serviceChanged
+ */
 export default class BLEDiscovery extends EventEmitter {
   private scanEnabled: boolean;
 
@@ -51,7 +145,8 @@ export default class BLEDiscovery extends EventEmitter {
   /**
    * Start searching for BLE HAP devices.
    *
-   * @param {boolean} allowDuplicates - Allow duplicate serviceUp events. This
+   * @param {boolean} allowDuplicates - Deprecated, use new serviceChanged event instead.
+   *                  Allow duplicate serviceUp events. This
    *                  is needed for disconnected events, where the GSN is
    *                  updated in the advertisement.
    */
@@ -67,8 +162,19 @@ export default class BLEDiscovery extends EventEmitter {
     // Only manually start if powered on already. Otherwise, wait for state
     // change and handle it there.
     if ((<{ _state: string }>(<unknown>noble))._state === 'poweredOn') {
-      noble.startScanning([], this.allowDuplicates);
+      noble.startScanning([], true);
     }
+  }
+
+  /**
+   * Get PairMethod to use for pairing from the data received during discovery
+   *
+   * @param {HapService} service Discovered service object to check
+   * @returns {Promise<number>} Promise which resolves with the PairMethod to use
+   */
+  public static async getPairMethod(service: HapService): Promise<number> {
+    const client = new GattClient(service.DeviceID, service.peripheral);
+    return client.getPairingMethod();
   }
 
   /**
@@ -93,7 +199,7 @@ export default class BLEDiscovery extends EventEmitter {
 
   private _handleStateChange(state: string): void {
     if (state === 'poweredOn' && this.scanEnabled) {
-      noble.startScanning([], this.allowDuplicates);
+      noble.startScanning([], true);
     } else {
       noble.stopScanning();
     }
@@ -107,7 +213,7 @@ export default class BLEDiscovery extends EventEmitter {
 
   private _handleScanStop(): void {
     if (this.scanEnabled) {
-      noble.startScanning([], this.allowDuplicates);
+      noble.startScanning([], true);
     }
   }
 
@@ -135,6 +241,7 @@ export default class BLEDiscovery extends EventEmitter {
     const GSN = manufacturerData.readUInt16LE(13);
     const CN = manufacturerData.readUInt8(15);
     const CV = manufacturerData.readUInt8(16);
+    // const SH = manufacturerData.length > 17 ? manufacturerData.slice(17, 21) : Buffer.alloc(0);
 
     if (CoID !== 0x4c || TY !== 0x06 || CV !== 0x02) {
       return;
@@ -158,9 +265,32 @@ export default class BLEDiscovery extends EventEmitter {
       CN,
       CV,
       peripheral,
+      // SH,
+      'c#': CN,
+      id: formattedId,
+      availableToPair: !!(SF & DiscoveryPairingStatusFlags.AccessoryNotPaired),
     };
 
+    const formerService = this.services.get(service.DeviceID);
     this.services.set(service.DeviceID, service);
-    this.emit('serviceUp', service);
+    if (this.services.has(service.DeviceID) && !this.allowDuplicates) {
+      if (!isDeepStrictEqual(formerService, service)) {
+        /**
+         * Device data changed event
+         *
+         * @event BLEDiscovery#serviceChanged
+         * @type HapService
+         */
+        this.emit('serviceChanged', service);
+      }
+    } else {
+      /**
+       * New device discovered event
+       *
+       * @event BLEDiscovery#serviceUp
+       * @type HapService
+       */
+      this.emit('serviceUp', service);
+    }
   }
 }
