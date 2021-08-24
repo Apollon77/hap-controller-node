@@ -2,6 +2,10 @@
  * Class for dealing with HAP TLV data.
  */
 
+import Debug from 'debug';
+
+const debug = Debug('hap-controller:tlv');
+
 const kTLVType_Separator = 255;
 
 export type TLV = Map<number, Buffer>;
@@ -27,6 +31,8 @@ export function decodeBuffer(buffer: Buffer): TLV {
     const tag = buffer.readUInt8(position++);
     const length = buffer.readUInt8(position++);
     const value = buffer.slice(position, position + length);
+
+    debug(`Read ${length} bytes for tag ${tag}: ${value.toString('hex')}`);
 
     if (result.has(tag)) {
       const existingValue = result.get(tag);
@@ -75,6 +81,7 @@ export function encodeObject(obj: TLV): Buffer {
     }
 
     if (tag === kTLVType_Separator) {
+      debug('Add separator to data');
       tlvs.push(Buffer.from([kTLVType_Separator, 0]));
       continue;
     }
@@ -92,6 +99,13 @@ export function encodeObject(obj: TLV): Buffer {
       while (values[valueIdx].length - position > 0) {
         const length = Math.min(values[valueIdx].length - position, 255);
 
+        debug(
+          `Add ${length} bytes for tag ${tag}: ${values[valueIdx].toString(
+            'hex',
+            position,
+            position + length
+          )}`
+        );
         const tlv = Buffer.allocUnsafe(length + 2);
         tlv.writeUInt8(tag, 0);
         tlv.writeUInt8(length, 1);
@@ -102,6 +116,7 @@ export function encodeObject(obj: TLV): Buffer {
       }
 
       if (++valueIdx < values.length) {
+        debug('Add separator to data');
         tlvs.push(Buffer.from([kTLVType_Separator, 0]));
       }
     }

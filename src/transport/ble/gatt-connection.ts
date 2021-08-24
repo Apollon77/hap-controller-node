@@ -6,6 +6,9 @@ import { OpQueue, Watcher } from './gatt-utils';
 import sodium from 'libsodium-wrappers';
 import { Characteristic, Peripheral } from '@abandonware/noble';
 import { SessionKeys } from '../../protocol/pairing-protocol';
+import Debug from 'debug';
+
+const debug = Debug('hap-controller:gatt-connection');
 
 export default class GattConnection {
   private peripheral: Peripheral;
@@ -164,6 +167,11 @@ export default class GattConnection {
 
       for (const pdu of pdus) {
         lastOp = queue.queue(async () => {
+          debug(
+            `${this.peripheral.id}/${this.peripheral.address} Write for characteristic ${
+              characteristic.uuid
+            } ${pdu.toString('hex')}`
+          );
           await new Watcher(this.peripheral, characteristic.writeAsync(pdu, false)).getPromise();
         });
       }
@@ -189,6 +197,12 @@ export default class GattConnection {
     if (this.sessionKeys) {
       data = this._decryptPdu(data);
     }
+
+    debug(
+      `${this.peripheral.id}/${this.peripheral.address} Received data for characteristic ${
+        characteristic.uuid
+      } ${data.toString('hex')}`
+    );
 
     pdus.push(data);
 

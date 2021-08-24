@@ -8,6 +8,9 @@ import net from 'net';
 import sodium from 'libsodium-wrappers';
 import { HTTPParser } from 'http-parser-js';
 import { SessionKeys } from '../../protocol/pairing-protocol';
+import Debug from 'debug';
+
+const debug = Debug('hap-controller:http-connection');
 
 /**
  * Internal socket state.
@@ -115,6 +118,7 @@ export default class HttpConnection extends EventEmitter {
    *                    response body.
    */
   get(path: string): Promise<HttpResponse> {
+    debug(`${this.address}:${this.port} GET ${path}`);
     const data = Buffer.from(`GET ${path} HTTP/1.1\r\n\r\n`);
     return this.request(data);
   }
@@ -136,6 +140,7 @@ export default class HttpConnection extends EventEmitter {
     if (typeof body === 'string') {
       body = Buffer.from(body);
     }
+    debug(`${this.address}:${this.port} POST ${path} ${body.toString('hex')}`);
 
     const data = Buffer.concat([
       Buffer.from(`POST ${path} HTTP/1.1\r\n`),
@@ -166,6 +171,7 @@ export default class HttpConnection extends EventEmitter {
     if (typeof body === 'string') {
       body = Buffer.from(body);
     }
+    debug(`${this.address}:${this.port} PUT ${path} ${body.toString('hex')}`);
 
     const data = Buffer.concat([
       Buffer.from(`PUT ${path} HTTP/1.1\r\n`),
@@ -232,7 +238,7 @@ export default class HttpConnection extends EventEmitter {
   /**
    * Create an HTTP response parser.
    *
-   * @param {callback} resolve - Function to call with response
+   * @param {(response: HttpResponse) => void} resolve - Function to call with response
    * @returns {Object} HTTPParser object.
    */
   private _buildHttpResponseParser(resolve: (response: HttpResponse) => void): HTTPParser {
@@ -331,6 +337,10 @@ export default class HttpConnection extends EventEmitter {
           this.socket!.on('data', bodyParser);
         }
 
+        debug(
+          `${this.address}:${this.port} ` +
+            `Response ${response.statusCode} with ${response.body.length} byte data`
+        );
         resolve(response);
       });
 
@@ -376,6 +386,10 @@ export default class HttpConnection extends EventEmitter {
           this.socket!.on('data', bodyParser);
         }
 
+        debug(
+          `${this.address}:${this.port} ` +
+            `Response ${response.statusCode} with ${response.body.length} byte data`
+        );
         resolve(response);
       });
 

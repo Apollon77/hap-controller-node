@@ -36,15 +36,6 @@ const PairMethods = {
 };
 
 /**
- * See Table 5-4
- */
-/*
-const PairingFeatureFlags = {
-  // unknown
-};
-*
-
-/**
  * See Table 5-5
  */
 /*
@@ -85,7 +76,6 @@ const Types = {
 /**
  * See Table 5-7
  */
-
 const PairingTypeFlags = {
   kPairingFlag_Transient: 0x00000010,
   kPairingFlag_Split: 0x01000000,
@@ -983,7 +973,7 @@ export default class PairingProtocol {
   /**
    * Get the data (keys) that needs to be stored long-term.
    *
-   * @returns {Object} Object containing the keys that should be stored.
+   * @returns {PairingProtocol} Object containing the keys that should be stored.
    */
   getLongTermData(): PairingData | null {
     if (

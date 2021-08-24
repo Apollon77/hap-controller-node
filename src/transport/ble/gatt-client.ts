@@ -15,6 +15,7 @@ import {
   Characteristic as NobleCharacteristic,
   Peripheral as NoblePeripheral,
 } from '@abandonware/noble';
+import { DiscoveryPairingFeatureFlags } from '../ip/ip-discovery';
 
 export interface GetCharacteristicsOptions {
   meta?: boolean;
@@ -84,8 +85,8 @@ export default class GattClient extends EventEmitter {
    * Initialize the GattClient object.
    *
    * @param {string} deviceId - ID of the device
-   * @param {Object} peripheral - Peripheral object from noble
-   * @param {Object?} pairingData - existing pairing data
+   * @param {NoblePeripheral} peripheral - Peripheral object from noble
+   * @param {PairingData?} pairingData - existing pairing data
    */
   constructor(deviceId: string, peripheral: NoblePeripheral, pairingData?: PairingData) {
     super();
@@ -125,7 +126,7 @@ export default class GattClient extends EventEmitter {
   /**
    * Get the data (keys) that needs to be stored long-term.
    *
-   * @returns {Object} Object containing the keys that should be stored.
+   * @returns {PairingData} Object containing the keys that should be stored.
    */
   getLongTermData(): PairingData | null {
     return this.pairingProtocol.getLongTermData();
@@ -233,6 +234,63 @@ export default class GattClient extends EventEmitter {
     return data.readUInt16LE(0);
   }
 
+  async getPairingMethod(): Promise<number> {
+    const serviceUuid = GattUtils.uuidToNobleUuid(
+      Service.uuidFromService('public.hap.service.pairing')
+    );
+    const featureCharacteristicUuid = GattUtils.uuidToNobleUuid(
+      Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.features')
+    );
+
+    return this._queueOperation(async () => {
+      const connection = new GattConnection(this.peripheral);
+
+      try {
+        await connection.connect();
+
+        const { characteristics } = await new GattUtils.Watcher(
+          this.peripheral,
+          this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
+            [serviceUuid],
+            [featureCharacteristicUuid]
+          )
+        ).getPromise();
+
+        if (!characteristics) {
+          throw new Error('pairing.features characteristic not found');
+        }
+
+        const characteristic = characteristics[0];
+        const iid = await this._readInstanceId(characteristic);
+
+        const pdu = this.gattProtocol.buildCharacteristicReadRequest(
+          this.getNextTransactionId(),
+          iid
+        );
+        const pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        await connection.disconnect().catch(() => {});
+
+        if (pdus.length !== 0) {
+          const response = pdus[0];
+          const pairFeatures = response.readUInt8();
+          const pairMethod =
+            pairFeatures & DiscoveryPairingFeatureFlags.SupportsAppleAuthenticationCoprocessor
+              ? PairMethods.PairSetupWithAuth
+              : PairMethods.PairSetup;
+          return pairMethod;
+        } else {
+          throw new Error('Could not read the Pairing Feature information');
+        }
+      } catch (err) {
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        await connection.disconnect().catch(() => {});
+        throw err;
+      }
+    });
+  }
+
   /**
    * Begins the pairing process. For devices with random pins, this
    * will cause it to show the pin on the screen.
@@ -266,7 +324,7 @@ export default class GattClient extends EventEmitter {
         )
       ).getPromise();
 
-      if (characteristics.length === 0) {
+      if (!characteristics) {
         throw new Error('pair-setup characteristic not found');
       }
 
@@ -326,7 +384,8 @@ export default class GattClient extends EventEmitter {
   /**
    * Finishes a pairing process that began with startPairing()
    *
-   * @param {Object} pairingData - The pairing data returned from startPairing()
+   * @param {PairingData} pairingData - The pairing data returned from startPairing()
+   * @param {string} pin - The pairing PIN, needs to be formatted as XXX-XX-XXX
    * @returns {Promise} Promise which resolves when pairing is complete.
    */
   async finishPairing(
@@ -336,7 +395,7 @@ export default class GattClient extends EventEmitter {
     const { tlv, iid, characteristic } = pairingData;
     const re = /^\d{3}-\d{2}-\d{3}$/;
     if (!re.test(pin)) {
-      throw new Error('Invalid PIN');
+      throw new Error('Invalid PIN, Make sure Format is XXX-XX-XXX');
     }
 
     if (!this._pairingConnection) {
@@ -461,7 +520,7 @@ export default class GattClient extends EventEmitter {
   /**
    * Attempt to pair with a device.
    *
-   * @param {string} pin - The pairing PIN
+   * @param {string} pin - The pairing PIN, needs to be formatted as XXX-XX-XXX
    * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
    * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
    * @returns {Promise} Promise which resolves when pairing is complete.
@@ -477,7 +536,8 @@ export default class GattClient extends EventEmitter {
   /**
    * Method used internally to generate session keys for a connection.
    *
-   * @param {Object} connection - Existing GattConnection object
+   * @private
+   * @param {GattConnection} connection - Existing GattConnection object
    * @returns {Promise} Promise which resolves when the pairing has been verified.
    */
   private async _pairVerify(connection: GattConnection): Promise<void> {
@@ -1314,7 +1374,7 @@ export default class GattClient extends EventEmitter {
             lastOp = queue.queue(async () => {
               const pdus = await connection!.writeCharacteristic(c, [pdu]);
               if (pdus.length === 0) {
-                throw new Error('No sgnature read response');
+                throw new Error('No signature read response');
               }
 
               const entry: CharacteristicObject = { aid: 1, iid };
@@ -1631,6 +1691,7 @@ export default class GattClient extends EventEmitter {
   /**
    * Subscribe to events for a set of characteristics.
    *
+   * @fires HttpClient#event
    * @param {Object[]} characteristics - Characteristics to subscribe to, as a
    *                   list of objects:
    *                   {characteristicUuid, serviceUuid, iid, format}
@@ -1688,6 +1749,11 @@ export default class GattClient extends EventEmitter {
           // should be triggered when this happens.
           if (Buffer.isBuffer(data) && data.length === 0) {
             this.getCharacteristics([c], {}, connection).then((res) => {
+              /**
+               * Event emitted with characteristic value changes
+               *
+               * @event GattClient#event
+               */
               this.emit('event', res);
             });
           }
