@@ -71,7 +71,7 @@ module.exports = {
     ],
     '@typescript-eslint/indent': [
       'error',
-      2,
+      4,
       {
         'ArrayExpression': 'first',
         'CallExpression': {
@@ -106,7 +106,7 @@ module.exports = {
     ],
     'max-len': [
       'error',
-      100
+      120
     ],
     '@typescript-eslint/member-delimiter-style': [
       'error',
