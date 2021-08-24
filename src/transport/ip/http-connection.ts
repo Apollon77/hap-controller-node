@@ -84,29 +84,33 @@ export default class HttpConnection extends EventEmitter {
 
     return new Promise<void>((resolve, reject) => {
       this.state = State.CLOSED;
-      this.socket = net.createConnection(this.port, this.address);
-      this.socket!.setKeepAlive(true);
+      try {
+        this.socket = net.createConnection(this.port, this.address);
+        this.socket!.setKeepAlive(true);
 
-      this.socket!.on('close', () => {
-        this.socket = null;
-        this.state = State.CLOSED;
-        this.emit('disconnect', {});
-      });
-      this.socket!.on('end', () => {
-        this.state = State.CLOSING;
-        this.socket?.end();
-      });
-      this.socket!.on('timeout', () => {
-        this.state = State.CLOSING;
-        this.socket?.end();
-      });
-      this.socket!.on('error', () => {
-        reject();
-      });
-      this.socket!.on('connect', () => {
-        this.state = State.READY;
-        resolve();
-      });
+        this.socket!.on('close', () => {
+          this.socket = null;
+          this.state = State.CLOSED;
+          this.emit('disconnect', {});
+        });
+        this.socket!.on('end', () => {
+          this.state = State.CLOSING;
+          this.socket?.end();
+        });
+        this.socket!.on('timeout', () => {
+          this.state = State.CLOSING;
+          this.socket?.end();
+        });
+        this.socket!.on('error', (err) => {
+          reject(err);
+        });
+        this.socket!.on('connect', () => {
+          this.state = State.READY;
+          resolve();
+        });
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -280,12 +284,15 @@ export default class HttpConnection extends EventEmitter {
     await sodium.ready;
     await this._open();
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const oldListeners = <((...args: any[]) => void)[]>this.socket!.listeners('data');
       this.socket!.removeAllListeners('data');
 
-      this.socket!.write(this._encryptData(data));
-
+      try {
+        this.socket!.write(this._encryptData(data));
+      } catch (err) {
+        return reject(err);
+      }
       let message = Buffer.alloc(0);
 
       // eslint-disable-next-line prefer-const
@@ -360,11 +367,15 @@ export default class HttpConnection extends EventEmitter {
   private async _requestClear(data: Buffer, readEvents = false): Promise<HttpResponse> {
     await this._open();
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const oldListeners = <((...args: any[]) => void)[]>this.socket!.listeners('data');
       this.socket!.removeAllListeners('data');
 
-      this.socket!.write(data);
+      try {
+        this.socket!.write(data);
+      } catch (err) {
+        return reject(err);
+      }
 
       // eslint-disable-next-line prefer-const
       let parser: HTTPParser | HttpEventParser;

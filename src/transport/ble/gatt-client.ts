@@ -763,10 +763,10 @@ export default class GattClient extends EventEmitter {
   /**
    * Unpair the controller from a device.
    *
-   * @param {string} identifier - Identifier of the controller to remove
+   * @param {string|Buffer} identifier - Identifier of the controller to remove
    * @returns {Promise} Promise which resolves when the process completes.
    */
-  removePairing(identifier: string): Promise<void> {
+  removePairing(identifier: string | Buffer): Promise<void> {
     const serviceUuid = GattUtils.uuidToNobleUuid(
       Service.uuidFromService('public.hap.service.pairing')
     );
@@ -778,6 +778,10 @@ export default class GattClient extends EventEmitter {
       const connection = new GattConnection(this.peripheral);
 
       try {
+        if (typeof identifier === 'string') {
+          identifier = PairingProtocol.bufferFromHex(identifier);
+        }
+
         await connection.connect();
         await this._pairVerify(connection);
 

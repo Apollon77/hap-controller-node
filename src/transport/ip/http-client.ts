@@ -171,13 +171,17 @@ export default class HttpClient extends EventEmitter {
   /**
    * Unpair the controller from a device.
    *
-   * @param {string} identifier - Identifier of the controller to remove
+   * @param {string | Buffer} identifier - Identifier of the controller to remove
    * @returns {Promise} Promise which resolves when the process completes.
    */
-  async removePairing(identifier: string): Promise<void> {
+  async removePairing(identifier: string | Buffer): Promise<void> {
     const connection = new HttpConnection(this.address, this.port);
     const keys = await this._pairVerify(connection);
     connection.setSessionKeys(keys);
+
+    if (typeof identifier === 'string') {
+      identifier = PairingProtocol.bufferFromHex(identifier);
+    }
 
     // M1
     const m1 = await this.pairingProtocol.buildRemovePairingM1(identifier);
@@ -432,5 +436,34 @@ export default class HttpClient extends EventEmitter {
     if (response.statusCode !== 204 && response.statusCode !== 207) {
       throw new Error(`Unsubscribe failed with status ${response.statusCode}`);
     }
+  }
+
+  /**
+   * Support for Get Image requests
+   *
+   * @param accessory
+   * @param width
+   * @param height
+   */
+  async getImage(accessory: number, width: number, height: number) {
+    const connection = new HttpConnection(this.address, this.port);
+    const data = {
+      aid: accessory,
+      'resource-type': 'image',
+      'image-width': width,
+      'image-height': height,
+    };
+
+    const keys = await this._pairVerify(connection);
+    connection.setSessionKeys(keys);
+
+    const response = await connection.post('/resource', Buffer.from(JSON.stringify(data)));
+    connection.close();
+
+    if (response.statusCode !== 200) {
+      throw new Error(`Set failed with status ${response.statusCode}`);
+    }
+
+    return response.body;
   }
 }
