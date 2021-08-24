@@ -13,7 +13,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrstegeman/hap-controller-node.git"
+    "url": "git+https://github.com/Apollon77/hap-controller-node.git"
   },
   "keywords": [
     "HomeKit",
@@ -23,9 +23,9 @@
   "author": "Michael Stegeman",
   "license": "MPL-2.0",
   "bugs": {
-    "url": "https://github.com/mrstegeman/hap-controller-node/issues"
+    "url": "https://github.com/Apollon77/hap-controller-node/issues"
   },
-  "homepage": "https://github.com/mrstegeman/hap-controller-node#readme",
+  "homepage": "https://github.com/Apollon77/hap-controller-node#readme",
   "dependencies": {
     "@abandonware/noble": "^1.9.2-14",
     "debug": "4.3.2",
