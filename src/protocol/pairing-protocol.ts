@@ -38,22 +38,21 @@ const PairMethods = {
 /**
  * See Table 5-5
  */
-/*
-const ErrorCodes = {
-  kTLVError_Unknown: 0x01,
-  kTLVError_Authentication: 0x02,
-  kTLVError_Backoff: 0x03,
-  kTLVError_MaxPeers: 0x04,
-  kTLVError_MaxTries: 0x05,
-  kTLVError_Unavailable: 0x06,
-  kTLVError_Busy: 0x07,
+
+export const ErrorCodes = {
+    kTLVError_Unknown: 0x01,
+    kTLVError_Authentication: 0x02,
+    kTLVError_Backoff: 0x03,
+    kTLVError_MaxPeers: 0x04,
+    kTLVError_MaxTries: 0x05,
+    kTLVError_Unavailable: 0x06,
+    kTLVError_Busy: 0x07,
 };
-*/
 
 /**
  * See Table 5-6, Table 7-38
  */
-const Types = {
+export const Types = {
     kTLVType_Method: 0x00,
     kTLVType_Identifier: 0x01,
     kTLVType_Salt: 0x02,
