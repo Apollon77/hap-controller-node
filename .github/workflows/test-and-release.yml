@@ -64,6 +64,7 @@ jobs:
         run: |
           npm ci
       - name: Check formatting with prettier
+        if: startsWith(runner.OS, 'windows') == false
         run: |
           npx prettier -u -c '*.ts' examples src __tests__
       - name: Lint with eslint
