@@ -185,7 +185,7 @@ export default class IPDiscovery extends EventEmitter {
      * @param {HapServiceIp} service Discovered service object to check
      * @returns {Promise<number>} Promise which resolves with the PairMethod to use
      */
-    public static async getPairMethod(service: HapServiceIp): Promise<number> {
+    public async getPairMethod(service: HapServiceIp): Promise<number> {
         // async to be compatible with the BLE variant
         return service.ff & DiscoveryPairingFeatureFlags.SupportsAppleAuthenticationCoprocessor
             ? PairMethods.PairSetupWithAuth

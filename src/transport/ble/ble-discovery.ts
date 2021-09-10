@@ -4,8 +4,10 @@
 
 import { EventEmitter } from 'events';
 import noble from '@abandonware/noble';
-import { isDeepStrictEqual } from 'util';
 import GattClient from './gatt-client';
+import Debug from 'debug';
+
+const debug = Debug('hap-controller:gatt-client');
 
 /**
  * See Table 7-43
@@ -172,7 +174,7 @@ export default class BLEDiscovery extends EventEmitter {
      * @param {HapServiceBle} service Discovered service object to check
      * @returns {Promise<number>} Promise which resolves with the PairMethod to use
      */
-    public static async getPairMethod(service: HapServiceBle): Promise<number> {
+    public async getPairMethod(service: HapServiceBle): Promise<number> {
         const client = new GattClient(service.DeviceID, service.peripheral);
         return client.getPairingMethod();
     }
@@ -238,6 +240,9 @@ export default class BLEDiscovery extends EventEmitter {
         const CV = manufacturerData.readUInt8(16);
         // const SH = manufacturerData.length > 17 ? manufacturerData.slice(17, 21) : Buffer.alloc(0);
 
+        if (TY === 0x11) {
+            debug(`Encrypted Broadcast detected ... ignoring for now: ${manufacturerData}`);
+        }
         if (CoID !== 0x4c || TY !== 0x06 || CV !== 0x02) {
             return;
         }
@@ -268,15 +273,19 @@ export default class BLEDiscovery extends EventEmitter {
 
         const formerService = this.services.get(service.DeviceID);
         this.services.set(service.DeviceID, service);
-        if (this.services.has(service.DeviceID) && !this.allowDuplicates) {
-            if (!isDeepStrictEqual(formerService, service)) {
-                /**
-                 * Device data changed event
-                 *
-                 * @event BLEDiscovery#serviceChanged
-                 * @type HapServiceBle
-                 */
-                this.emit('serviceChanged', service);
+        if (formerService && !this.allowDuplicates) {
+            for (const el of Object.keys(service) as (keyof HapServiceBle)[]) {
+                if (el !== 'peripheral' && el !== 'name' && formerService[el] !== service[el]) {
+                    console.log(`Different: ${el}: ${formerService[el]} !== ${service[el]}`);
+                    /**
+                     * Device data changed event
+                     *
+                     * @event BLEDiscovery#serviceChanged
+                     * @type HapServiceBle
+                     */
+                    this.emit('serviceChanged', service);
+                    break;
+                }
             }
         } else {
             /**
