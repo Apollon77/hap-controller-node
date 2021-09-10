@@ -140,11 +140,14 @@ export default class GattClient extends EventEmitter {
                     this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
                 ).getPromise();
 
-                if (characteristics.length === 0) {
+                const characteristic = characteristics.find((c) => {
+                    return c.uuid === characteristicUuid;
+                });
+
+                if (!characteristic) {
                     throw new Error('Identify characteristic not found');
                 }
 
-                const characteristic = characteristics[0];
                 const iid = await this._readInstanceId(characteristic);
 
                 const data = new Map();
@@ -224,11 +227,14 @@ export default class GattClient extends EventEmitter {
                     )
                 ).getPromise();
 
-                if (!characteristics) {
+                const characteristic = characteristics.find((c) => {
+                    return c.uuid === featureCharacteristicUuid;
+                });
+
+                if (!characteristic) {
                     throw new Error('pairing.features characteristic not found');
                 }
 
-                const characteristic = characteristics[0];
                 const iid = await this._readInstanceId(characteristic);
 
                 const pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
@@ -293,11 +299,14 @@ export default class GattClient extends EventEmitter {
                 this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
             ).getPromise();
 
-            if (!characteristics) {
+            const characteristic = characteristics.find((c) => {
+                return c.uuid === characteristicUuid;
+            });
+
+            if (!characteristic) {
                 throw new Error('pair-setup characteristic not found');
             }
 
-            const characteristic = characteristics[0];
             const iid = await this._readInstanceId(characteristic);
 
             const packet = await this.pairingProtocol.buildPairSetupM1(pairMethod, pairFlags);
@@ -505,11 +514,13 @@ export default class GattClient extends EventEmitter {
             this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
         ).getPromise();
 
-        if (characteristics.length === 0) {
+        const characteristic = characteristics.find((c) => {
+            return c.uuid === characteristicUuid;
+        });
+
+        if (!characteristic) {
             throw new Error('pair-verify characteristic not found');
         }
-
-        const characteristic = characteristics[0];
         const iid = await this._readInstanceId(characteristic);
 
         if (this.pairingProtocol.canResume()) {
@@ -709,11 +720,14 @@ export default class GattClient extends EventEmitter {
                     this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
                 ).getPromise();
 
-                if (characteristics.length === 0) {
+                const characteristic = characteristics.find((c) => {
+                    return c.uuid === characteristicUuid;
+                });
+
+                if (!characteristic) {
                     throw new Error('pairings characteristic not found');
                 }
 
-                const characteristic = characteristics[0];
                 const iid = await this._readInstanceId(characteristic);
 
                 await this._pairVerify(connection);
@@ -793,11 +807,14 @@ export default class GattClient extends EventEmitter {
                     this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
                 ).getPromise();
 
-                if (characteristics.length === 0) {
+                const characteristic = characteristics.find((c) => {
+                    return c.uuid === characteristicUuid;
+                });
+
+                if (!characteristic) {
                     throw new Error('pairings characteristic not found');
                 }
 
-                const characteristic = characteristics[0];
                 const iid = await this._readInstanceId(characteristic);
 
                 await this._pairVerify(connection);
@@ -874,11 +891,14 @@ export default class GattClient extends EventEmitter {
                     this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
                 ).getPromise();
 
-                if (characteristics.length === 0) {
+                const characteristic = characteristics.find((c) => {
+                    return c.uuid === characteristicUuid;
+                });
+
+                if (!characteristic) {
                     throw new Error('pairings characteristic not found');
                 }
 
-                const characteristic = characteristics[0];
                 const iid = await this._readInstanceId(characteristic);
 
                 await this._pairVerify(connection);
