@@ -445,10 +445,14 @@ export default class HttpClient extends EventEmitter {
     /**
      * Modify a set of characteristics.
      *
-     * @param {Object} characteristics - Characteristic IDs to set in form id -> val
+     * @param {Object} characteristics - Characteristic IDs to set in form
+     *                                   * id -> val or
+     *                                   * id -> SetCharacteristicsObject
      * @returns {Promise} Promise which resolves to the JSON document.
      */
-    async setCharacteristics(characteristics: Record<string, unknown>): Promise<Record<string, unknown>> {
+    async setCharacteristics(
+        characteristics: Record<string, unknown>
+    ): Promise<Record<string, unknown | SetCharacteristicsObject>> {
         const connection = new HttpConnection(this.address, this.port);
         const data = {
             characteristics: <WriteCharacteristicsObject[]>[],
@@ -463,8 +467,20 @@ export default class HttpClient extends EventEmitter {
             let dataObject: WriteCharacteristicsObject = {
                 aid: parseInt(parts[0], 10),
                 iid: parseInt(parts[1], 10),
-                value: characteristics[cid],
-            });
+                value: null,
+            };
+            if (
+                typeof characteristics[cid] === 'object' &&
+                characteristics[cid] !== null &&
+                // eslint-disable-next-line no-undefined
+                (characteristics[cid] as SetCharacteristicsObject).value !== undefined
+            ) {
+                dataObject = Object.assign(dataObject, characteristics[cid]);
+            } else {
+                dataObject.value = characteristics[cid];
+            }
+
+            data.characteristics.push(dataObject);
         }
 
         const response = await connection.put('/characteristics', Buffer.from(JSON.stringify(data)));
