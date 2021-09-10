@@ -68,6 +68,7 @@ jobs:
         run: |
           npx prettier -u -c '*.ts' examples src __tests__
       - name: Lint with eslint
+        if: startsWith(runner.OS, 'windows') == false
         run: |
           npm run lint
       - name: Run build
