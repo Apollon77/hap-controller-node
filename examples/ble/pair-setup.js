@@ -9,7 +9,7 @@ discovery.on('serviceUp', async (service) => {
 
     if (service.availableToPair) {
         try {
-            const pairMethod = await discovery.getPairingMethod(service);
+            const pairMethod = await discovery.getPairMethod(service);
 
             const client = new GattClient(service.DeviceID, service.peripheral);
             await client.pairSetup(pin, pairMethod);
