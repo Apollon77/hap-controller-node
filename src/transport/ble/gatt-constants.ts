@@ -8,6 +8,8 @@ export const Opcodes = {
     'HAP-Characteristic-Timed-Write': 4,
     'HAP-Characteristic-Execute-Write': 5,
     'HAP-Service-Signature-Read': 6,
+    'HAP-Characteristic-Configuration': 7,
+    'HAP-Protocol-Configuration': 8,
 };
 
 /**
@@ -32,13 +34,21 @@ export const Types = {
     'HAP-Param-HAP-Linked-Services': 16,
     'HAP-Param-HAP-Valid-Values-Descriptor': 17,
     'HAP-Param-HAP-Valid-Values-Range-Descriptor': 18,
+
+    'HAP-Characteristic-Configuration-Param-Properties': 1,
+    'HAP-Characteristic-Configuration-Param-Broadcast-Interval': 2,
+
+    'HAP-Param-Current-State-Number': 1,
+    'HAP-Param-Current-Config-Number': 2,
+    'HAP-Param-Accessory-Advertising-Identifier': 3,
+    'HAP-Param-Broadcast-Encryption-Key': 4,
 };
 
 /**
  * See Table 6-26
  */
 /* eslint-disable max-len */
-export const StatusCodes = {
+export const HapStatusCodes = {
     0: {
         definition: 'Success',
         description: 'The request was successful.',
@@ -100,27 +110,27 @@ export const CharacteristicDescriptions = {
  * See Table 6-36
  */
 export const BTSigToHapFormat = new Map([
-    [1, 'bool'],
-    [4, 'uint8'],
-    [6, 'uint16'],
-    [8, 'uint32'],
-    [10, 'uint64'],
-    [16, 'int'],
-    [20, 'float'],
-    [25, 'string'],
-    [27, 'data'],
+    [0x01, 'bool'],
+    [0x04, 'uint8'],
+    [0x06, 'uint16'],
+    [0x08, 'uint32'],
+    [0x0a, 'uint64'],
+    [0x10, 'int'],
+    [0x14, 'float'],
+    [0x19, 'string'],
+    [0x1b, 'data'],
 ]);
 
 /**
  * See Table 6-37
  */
 export const BTSigToHapUnit = new Map([
-    [9984, 'unitless'],
-    [9987, 'seconds'],
-    [10031, 'celsius'],
-    [10033, 'lux'],
-    [10083, 'arcdegrees'],
-    [10157, 'percentage'],
+    [0x2700, 'unitless'],
+    [0x2703, 'seconds'],
+    [0x272f, 'celsius'],
+    [0x2731, 'lux'],
+    [0x2763, 'arcdegrees'],
+    [0x27ad, 'percentage'],
 ]);
 
 /**
