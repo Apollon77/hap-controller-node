@@ -124,4 +124,48 @@ export default class BLEProtocol {
             tlv: decodeBuffer(buf.slice(5, buf.length)),
         };
     }
+
+    buildCharacteristicConfigurationRequest(tid: number, iid: number, tlv: TLV): Buffer {
+        const body = encodeObject(tlv);
+
+        const buf = Buffer.alloc(7 + body.length);
+        buf.writeUInt8(GattConstants.Opcodes['HAP-Characteristic-Configuration'], 1);
+        buf.writeUInt8(tid, 2);
+        buf.writeUInt16LE(iid, 3);
+        buf.writeUInt16LE(body.length, 5);
+        body.copy(buf, 7);
+        return buf;
+    }
+
+    parseCharacteristicConfigurationResponse(buf: Buffer): GattResponse {
+        return {
+            controlField: buf.readUInt8(0),
+            tid: buf.readUInt8(1),
+            status: buf.readUInt8(2),
+            length: buf.readUInt16LE(3),
+            tlv: decodeBuffer(buf.slice(5, buf.length)),
+        };
+    }
+
+    buildProtocolConfigurationRequest(tid: number, svcID: number, tlv: TLV): Buffer {
+        const body = encodeObject(tlv);
+
+        const buf = Buffer.alloc(7 + body.length);
+        buf.writeUInt8(GattConstants.Opcodes['HAP-Protocol-Configuration'], 1);
+        buf.writeUInt8(tid, 2);
+        buf.writeUInt16LE(svcID, 3);
+        buf.writeUInt16LE(body.length, 5);
+        body.copy(buf, 7);
+        return buf;
+    }
+
+    parseProtocolConfigurationResponse(buf: Buffer): GattResponse {
+        return {
+            controlField: buf.readUInt8(0),
+            tid: buf.readUInt8(1),
+            status: buf.readUInt8(2),
+            length: buf.readUInt16LE(3),
+            tlv: decodeBuffer(buf.slice(5, buf.length)),
+        };
+    }
 }
