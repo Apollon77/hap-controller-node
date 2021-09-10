@@ -6,6 +6,12 @@ import { EventEmitter } from 'events';
 import HttpConnection from './http-connection';
 import PairingProtocol, { PairingData, SessionKeys, PairMethods } from '../../protocol/pairing-protocol';
 import { TLV } from '../../model/tlv';
+import Debug from 'debug';
+import * as Characteristic from '../../model/characteristic';
+import * as Service from '../../model/service';
+import { HomekitControllerError } from '../../index';
+
+const debug = Debug('hap-controller:http-client');
 
 export interface GetCharacteristicsOptions {
     /**
@@ -151,7 +157,11 @@ export default class HttpClient extends EventEmitter {
         connection.close();
 
         if (response.statusCode !== 204) {
-            throw new Error(`Identify failed with status ${response.statusCode}`);
+            throw new HomekitControllerError(
+                `Identify failed with status ${response.statusCode}`,
+                response.statusCode,
+                response.body
+            );
         }
     }
 
@@ -353,7 +363,11 @@ export default class HttpClient extends EventEmitter {
         connection.close();
 
         if (response.statusCode !== 200) {
-            throw new Error(`Get failed with status ${response.statusCode}`);
+            throw new HomekitControllerError(
+                `Get failed with status ${response.statusCode}`,
+                response.statusCode,
+                response.body
+            );
         }
 
         return JSON.parse(response.body.toString());
@@ -402,7 +416,11 @@ export default class HttpClient extends EventEmitter {
         connection.close();
 
         if (response.statusCode !== 200 && response.statusCode !== 207) {
-            throw new Error(`Get failed with status ${response.statusCode}`);
+            throw new HomekitControllerError(
+                `Get failed with status ${response.statusCode}`,
+                response.statusCode,
+                response.body
+            );
         }
 
         return JSON.parse(response.body.toString());
@@ -441,7 +459,11 @@ export default class HttpClient extends EventEmitter {
         } else if (response.statusCode === 207) {
             return JSON.parse(response.body.toString());
         } else {
-            throw new Error(`Set failed with status ${response.statusCode}`);
+            throw new HomekitControllerError(
+                `Set failed with status ${response.statusCode}`,
+                response.statusCode,
+                response.body
+            );
         }
     }
 
@@ -557,7 +579,11 @@ export default class HttpClient extends EventEmitter {
         connection.close();
 
         if (response.statusCode !== 200) {
-            throw new Error(`Set failed with status ${response.statusCode}`);
+            throw new HomekitControllerError(
+                `Image request errored with status ${response.statusCode}`,
+                response.statusCode,
+                response.body
+            );
         }
 
         return response.body;

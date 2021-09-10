@@ -7,6 +7,7 @@ import sodium from 'libsodium-wrappers';
 import { v4 as uuidv4 } from 'uuid';
 import { SRP, SrpClient } from 'fast-srp-hap';
 import HKDF from 'node-hkdf-sync';
+import { HomekitControllerError } from '../index';
 
 const Steps = {
     M1: 1,
@@ -288,7 +289,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M2: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
@@ -355,7 +357,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M4: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M4: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
@@ -456,7 +459,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M6: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M6: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
@@ -560,7 +564,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M2: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
@@ -709,7 +714,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M4: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M4: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
@@ -782,7 +788,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M2: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
@@ -826,7 +833,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M2: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
@@ -868,7 +876,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M2: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
@@ -955,7 +964,8 @@ export default class PairingProtocol {
         }
 
         if (tlv.has(Types.kTLVType_Error)) {
-            throw new Error(`M2: Error: ${tlv.get(Types.kTLVType_Error)!.readUInt8(0)}`);
+            const errorCode = tlv.get(Types.kTLVType_Error)!.readUInt8(0);
+            throw new HomekitControllerError(`M2: Error: ${errorCode}`, errorCode);
         }
 
         if (!tlv.has(Types.kTLVType_State)) {
