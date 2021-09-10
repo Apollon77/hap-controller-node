@@ -1318,8 +1318,17 @@ export default class GattClient extends EventEmitter {
                                 if (value & 0x0040) {
                                     entry.perms.push('hd');
                                 }
-                                if (value & 0x0080 || value & 0x0100) {
+                                if (value & 0x0080 || value & 0x0100 || value & 0x0200) {
                                     entry.perms.push('ev');
+                                    if (value & 0x0080) {
+                                        entry.perms.push('ev-connected');
+                                    }
+                                    if (value & 0x0100) {
+                                        entry.perms.push('ev-disconnected');
+                                    }
+                                    if (value & 0x0200) {
+                                        entry.perms.push('ev-broadcast');
+                                    }
                                 }
                             }
 
