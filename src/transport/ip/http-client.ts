@@ -376,7 +376,17 @@ export default class HttpClient extends EventEmitter {
             );
         }
 
-        return JSON.parse(response.body.toString());
+        const res: Characteristic.Accessories = JSON.parse(response.body.toString());
+        res.accessories.forEach((accessory) => {
+            accessory.services.forEach((service) => {
+                service.type = Service.ensureServiceUuid(service.type);
+                service.characteristics.forEach((characteristic) => {
+                    characteristic.type = Characteristic.ensureCharacteristicUuid(characteristic.type!);
+                });
+            });
+        });
+
+        return res;
     }
 
     /**
