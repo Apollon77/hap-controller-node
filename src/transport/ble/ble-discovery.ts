@@ -276,7 +276,6 @@ export default class BLEDiscovery extends EventEmitter {
         if (formerService && !this.allowDuplicates) {
             for (const el of Object.keys(service) as (keyof HapServiceBle)[]) {
                 if (el !== 'peripheral' && el !== 'name' && formerService[el] !== service[el]) {
-                    console.log(`Different: ${el}: ${formerService[el]} !== ${service[el]}`);
                     /**
                      * Device data changed event
                      *
