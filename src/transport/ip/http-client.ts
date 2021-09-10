@@ -659,16 +659,18 @@ export default class HttpClient extends EventEmitter {
     }
 
     /**
-     * Support for Get Image requests
+     * Get an JPEG image with a snapshot from the devices camera
      *
-     * @param accessory
-     * @param width
-     * @param height
+     * @param {number} width width of the returned image
+     * @param {number} height height of the returned image
+     * @param {number} [aid] accessory ID (optional)
+     *
+     * @returns {Promise<Buffer>} Promise which resolves to a Buffer with the JPEG image content
      */
-    async getImage(accessory: number, width: number, height: number) {
+    async getImage(width: number, height: number, aid?: number): Promise<Buffer> {
         const connection = new HttpConnection(this.address, this.port);
         const data = {
-            aid: accessory,
+            aid,
             'resource-type': 'image',
             'image-width': width,
             'image-height': height,
