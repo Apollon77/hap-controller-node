@@ -81,7 +81,6 @@ const ServiceMapByUuid = {
     [`0000026A${UuidSuffix}`]: 'public.hap.service.assistant',
     [`00000270${UuidSuffix}`]: 'public.hap.service.accessory-metrics',
     [`00000701${UuidSuffix}`]: 'public.hap.service.thread-transport',
-
 };
 
 const ServiceMapByService = Object.assign({}, ...Object.entries(ServiceMapByUuid).map(([a, b]) => ({ [b]: a })));

@@ -290,7 +290,6 @@ const CharacteristicMapByUuid = {
     [`00000703${UuidSuffix}`]: 'public.hap.characteristic.thread.status',
     [`00000704${UuidSuffix}`]: 'public.hap.characteristic.thread.control-point',
     [`00000706${UuidSuffix}`]: 'public.hap.characteristic.thread.open-thread-version',
-
 };
 /* eslint-enable max-len */
 
