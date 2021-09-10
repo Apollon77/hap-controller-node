@@ -563,12 +563,12 @@ export default class HttpClient extends EventEmitter {
                 this.subscriptionConnection = connection;
             }
 
-        const response = await connection.put(
-            '/characteristics',
-            Buffer.from(JSON.stringify(data)),
-            'application/hap+json',
-            true
-        );
+            const response = await connection.put(
+                '/characteristics',
+                Buffer.from(JSON.stringify(data)),
+                'application/hap+json',
+                true
+            );
 
             if (response.statusCode !== 204 && response.statusCode !== 207) {
                 if (!this.subscribedCharacteristics.length) {

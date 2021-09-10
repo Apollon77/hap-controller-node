@@ -12,6 +12,7 @@ export interface Accessories {
             characteristics: CharacteristicObject[];
             primary?: boolean;
             hidden?: boolean;
+            linked?: number[];
         }[];
     }[];
 }

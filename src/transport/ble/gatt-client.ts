@@ -439,36 +439,36 @@ export default class GattClient extends EventEmitter {
                         m5Data
                     );
 
-                pdus = await connection.writeCharacteristic(characteristic, [m5Pdu]);
-                if (pdus.length === 0) {
-                    throw new Error('M5: No response');
-                }
-
-                response = pdus[0];
-                status = response.readUInt8(2);
-                if (status !== 0) {
-                    throw new Error(`M5: Got error status: ${status}`);
-                }
-
-                if (response.length < 5) {
-                    const pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
-                    pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+                    pdus = await connection.writeCharacteristic(characteristic, [m5Pdu]);
                     if (pdus.length === 0) {
-                        throw new Error('M6: No response');
+                        throw new Error('M5: No response');
                     }
 
                     response = pdus[0];
                     status = response.readUInt8(2);
                     if (status !== 0) {
-                        throw new Error(`M6: Got error status: ${status}`);
+                        throw new Error(`M5: Got error status: ${status}`);
                     }
-                }
 
-                const m6Body = decodeBuffer(response.slice(5, response.length));
+                    if (response.length < 5) {
+                        const pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
+                        pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+                        if (pdus.length === 0) {
+                            throw new Error('M6: No response');
+                        }
 
-                if (!m6Body.has(GattConstants.Types['HAP-Param-Value'])) {
-                    throw new Error('M6: HAP-Param-Value missing');
-                }
+                        response = pdus[0];
+                        status = response.readUInt8(2);
+                        if (status !== 0) {
+                            throw new Error(`M6: Got error status: ${status}`);
+                        }
+                    }
+
+                    const m6Body = decodeBuffer(response.slice(5, response.length));
+
+                    if (!m6Body.has(GattConstants.Types['HAP-Param-Value'])) {
+                        throw new Error('M6: HAP-Param-Value missing');
+                    }
 
                     await this.pairingProtocol.parsePairSetupM6(m6Body.get(GattConstants.Types['HAP-Param-Value'])!);
                 }
@@ -1020,7 +1020,6 @@ export default class GattClient extends EventEmitter {
                                 .map((c) => {
                                     return {
                                         type: GattUtils.nobleUuidToUuid(c.uuid),
-                                        ev: false,
                                         perms: [],
                                         format: 'data',
                                     };
@@ -1063,7 +1062,6 @@ export default class GattClient extends EventEmitter {
                 }
 
                 await lastOp;
-                await this._pairVerify(connection);
 
                 queue = new GattUtils.OpQueue();
                 lastOp = Promise.resolve();
@@ -1075,9 +1073,17 @@ export default class GattClient extends EventEmitter {
                     const characteristicUuid = GattUtils.nobleUuidToUuid(c.characteristic.uuid);
 
                     if (characteristicUuid === GattConstants.ServiceSignatureUuid) {
-                        const pdu = this.gattProtocol.buildCharacteristicReadRequest(
+                        const service = database.accessories[0].services.find((s) => {
+                            return s.type === serviceUuid;
+                        });
+
+                        if (!service) {
+                            continue;
+                        }
+
+                        const pdu = this.gattProtocol.buildServiceSignatureReadRequest(
                             this.getNextTransactionId(),
-                            c.iid
+                            service.iid
                         );
 
                         lastOp = queue.queue(async () => {
@@ -1088,23 +1094,23 @@ export default class GattClient extends EventEmitter {
 
                             const response = pdus[0];
                             const body = decodeBuffer(response.slice(5, response.length));
-                            const value = body.get(GattConstants.Types['HAP-Param-Value']);
-                            if (!value) {
-                                return;
+
+                            const props = body.get(GattConstants.Types['HAP-Param-HAP-Service-Properties']);
+                            if (props && props.length) {
+                                switch (props.readUInt16LE(0)) {
+                                    case 1:
+                                        service.primary = true;
+                                        break;
+                                    case 2:
+                                        service.hidden = true;
+                                        break;
+                                }
                             }
-
-                            for (const service of database.accessories[0].services) {
-                                if (service.type === serviceUuid) {
-                                    switch (value.readUInt16LE(0)) {
-                                        case 1:
-                                            service.primary = true;
-                                            break;
-                                        case 2:
-                                            service.hidden = true;
-                                            break;
-                                    }
-
-                                    break;
+                            const linked = body.get(GattConstants.Types['HAP-Param-HAP-Linked-Services']);
+                            if (linked && linked.length) {
+                                service.linked = [];
+                                for (let idx = 0; idx < linked.length; idx += 2) {
+                                    service.linked.push(linked.readUInt16LE(idx));
                                 }
                             }
                         });
@@ -1112,6 +1118,8 @@ export default class GattClient extends EventEmitter {
                 }
 
                 await lastOp;
+
+                await this._pairVerify(connection);
 
                 const toFetch = [];
                 for (const c of characteristics) {
@@ -1656,8 +1664,8 @@ export default class GattClient extends EventEmitter {
                     )
                 ).getPromise();
 
-            const queue = new GattUtils.OpQueue();
-            let lastOp = Promise.resolve();
+                const queue = new GattUtils.OpQueue();
+                let lastOp = Promise.resolve();
 
                 for (const c of newSubscriptions) {
                     const characteristic = discoveredCharacteristics.find((d) => {
@@ -1667,9 +1675,9 @@ export default class GattClient extends EventEmitter {
                         );
                     });
 
-                if (!characteristic) {
-                    throw new Error(`Characteristic not found: ${JSON.stringify(c)}`);
-                }
+                    if (!characteristic) {
+                        throw new Error(`Characteristic not found: ${JSON.stringify(c)}`);
+                    }
 
                     if (!characteristic.properties.includes('indicate')) {
                         throw new Error(`Characteristic not available to subscribe: ${JSON.stringify(c)}`);
@@ -1701,7 +1709,7 @@ export default class GattClient extends EventEmitter {
                     });
                 }
 
-            await lastOp;
+                await lastOp;
 
                 this.subscribedCharacteristics = this.subscribedCharacteristics.concat(newSubscriptions);
             }
