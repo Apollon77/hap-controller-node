@@ -265,17 +265,29 @@ const CharacteristicMapByCharacteristic = Object.assign(
 );
 
 /**
+ * Ensure the type is a valid characteristic UUID, also when short representations is used
+ *
+ * @param {string} uuid - Characteristic UUID
+ * @returns {string} Characteristic UUID as UUID
+ */
+export function ensureCharacteristicUuid(uuid: string): string {
+    if (uuid.length <= 8) {
+        uuid = `${uuid.padStart(8, '0')}${UuidSuffix}`;
+    }
+
+    uuid = uuid.toUpperCase();
+
+    return uuid;
+}
+
+/**
  * Get a characteristic name from its UUID.
  *
  * @param {string} uuid - Characteristic UUID
  * @returns {string} Characteristic name
  */
 export function characteristicFromUuid(uuid: string): string {
-    if (uuid.length <= 8) {
-        uuid = `${uuid.padStart(8, '0')}${UuidSuffix}`;
-    }
-
-    uuid = uuid.toUpperCase();
+    uuid = ensureCharacteristicUuid(uuid);
 
     return CharacteristicMapByUuid[uuid] || uuid;
 }

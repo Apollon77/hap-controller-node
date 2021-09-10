@@ -87,17 +87,29 @@ const ServiceMapByUuid = {
 const ServiceMapByService = Object.assign({}, ...Object.entries(ServiceMapByUuid).map(([a, b]) => ({ [b]: a })));
 
 /**
+ * Ensure the type is a valid service UUID, also when short representations is used
+ *
+ * @param {string} uuid - Service UUID
+ * @returns {string} Service UUID as UUID
+ */
+export function ensureServiceUuid(uuid: string): string {
+    if (uuid.length <= 8) {
+        uuid = `${uuid.padStart(8, '0')}${UuidSuffix}`;
+    }
+
+    uuid = uuid.toUpperCase();
+
+    return uuid;
+}
+
+/**
  * Get a service name from its UUID.
  *
  * @param {string} uuid - Service UUID
  * @returns {string} Service name
  */
 export function serviceFromUuid(uuid: string): string {
-    if (uuid.length <= 8) {
-        uuid = `${uuid.padStart(8, '0')}${UuidSuffix}`;
-    }
-
-    uuid = uuid.toUpperCase();
+    uuid = ensureServiceUuid(uuid);
 
     return ServiceMapByUuid[uuid] || uuid;
 }
