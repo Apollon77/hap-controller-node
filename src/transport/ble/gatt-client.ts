@@ -22,45 +22,11 @@ export interface GetCharacteristicsOptions {
     extra?: boolean;
 }
 
-export interface CharacteristicObject {
-    serviceUuid?: string; // added for convenience
-    aid: number; // added for convenience
+interface GattSubscriptionCharacteristicData {
+    characteristicUuid: string;
+    serviceUuid: string;
     iid: number;
-    type?: string;
-    value?: unknown;
-    perms?: string[];
-    ev?: boolean;
-    description?: string;
-    format?: string;
-    unit?: string;
-    minValue?: number;
-    maxValue?: number;
-    minStep?: number;
-    maxLen?: number;
-    maxDataLen?: number;
-    'valid-values'?: number[];
-    'valid-values-range'?: number[];
-    TTL?: number;
-    pid?: number;
-}
-
-export interface Accessories {
-    accessories: {
-        aid: number;
-        services: {
-            iid: number;
-            type: string;
-            characteristics: {
-                type: string;
-                ev: boolean;
-                perms: string[];
-                format: string;
-                iid?: number;
-            }[];
-            primary?: boolean;
-            hidden?: boolean;
-        }[];
-    }[];
+    format: string;
 }
 
 export default class GattClient extends EventEmitter {
@@ -961,7 +927,7 @@ export default class GattClient extends EventEmitter {
      *
      * @returns {Promise} Promise which resolves to the JSON document.
      */
-    getAccessories(): Promise<Accessories> {
+    getAccessories(): Promise<Characteristic.Accessories> {
         const pairingUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const protocolInformationUuid = GattUtils.uuidToNobleUuid(
             Service.uuidFromService('public.hap.service.protocol.information.service')
@@ -970,7 +936,7 @@ export default class GattClient extends EventEmitter {
         const serviceSignatureUuid = GattUtils.uuidToNobleUuid(GattConstants.ServiceSignatureUuid);
 
         return this._queueOperation(async () => {
-            const database: Accessories = {
+            const database: Characteristic.Accessories = {
                 accessories: [
                     {
                         aid: 1,
@@ -1202,10 +1168,10 @@ export default class GattClient extends EventEmitter {
         }[],
         options: GetCharacteristicsOptions = {},
         connection: GattConnection | null = null
-    ): Promise<{ characteristics: CharacteristicObject[] }> {
+    ): Promise<{ characteristics: Characteristic.CharacteristicObject[] }> {
         const skipQueue = connection !== null;
 
-        const fn = async (): Promise<{ characteristics: CharacteristicObject[] }> => {
+        const fn = async (): Promise<{ characteristics: Characteristic.CharacteristicObject[] }> => {
             options = Object.assign(
                 {
                     meta: false,
@@ -1257,7 +1223,7 @@ export default class GattClient extends EventEmitter {
                     cList.push(characteristic);
                 }
 
-                const entries: CharacteristicObject[] = [];
+                const entries: Characteristic.CharacteristicObject[] = [];
                 if (options.meta || options.perms || options.extra) {
                     const queue = new GattUtils.OpQueue();
                     let lastOp = Promise.resolve();
@@ -1286,7 +1252,7 @@ export default class GattClient extends EventEmitter {
                                 throw new Error('No signature read response');
                             }
 
-                            const entry: CharacteristicObject = { aid: 1, iid };
+                            const entry: Characteristic.CharacteristicObject = { aid: 1, iid };
                             const response = pdus[0];
                             const status = response.readUInt8(2);
                             if (status !== 0) {
@@ -1432,7 +1398,7 @@ export default class GattClient extends EventEmitter {
 
                 const queue = new GattUtils.OpQueue();
                 let lastOp = Promise.resolve();
-                const updatedEntries: CharacteristicObject[] = [];
+                const updatedEntries: Characteristic.CharacteristicObject[] = [];
 
                 for (const c of cList) {
                     const match = characteristics.find((ch) => {
@@ -1599,15 +1565,9 @@ export default class GattClient extends EventEmitter {
      *                   {characteristicUuid, serviceUuid, iid, format}
      * @returns {Promise} Promise which resolves to the GattConnection object.
      */
-    subscribeCharacteristics(
-        characteristics: {
-            characteristicUuid: string;
-            serviceUuid: string;
-            iid: number;
-            format: string;
-        }[]
-    ): Promise<GattConnection> {
+    subscribeCharacteristics(characteristics: GattSubscriptionCharacteristicData[]): Promise<void> {
         return this._queueOperation(async () => {
+            const newSubscriptions: GattSubscriptionCharacteristicData[] = [];
             for (const c of characteristics) {
                 c.characteristicUuid = GattUtils.uuidToNobleUuid(c.characteristicUuid);
                 c.serviceUuid = GattUtils.uuidToNobleUuid(c.serviceUuid);
@@ -1669,11 +1629,12 @@ export default class GattClient extends EventEmitter {
      * Unsubscribe from events for a set of characteristics.
      *
      * @param {Object[]} characteristics - Characteristics to unsubscribe from, as
-     *                   a list of objects: {characteristicUuid, serviceUuid}
+     *                   a list of objects: {characteristicUuid, serviceUuid},
+     *                   if ommited all currently subscribed characteristics will be unsubscribed
      * @returns {Promise} Promise which resolves when the procedure is done.
      */
     async unsubscribeCharacteristics(
-        characteristics: { characteristicUuid: string; serviceUuid: string }[]
+        characteristics?: { characteristicUuid: string; serviceUuid: string }[]
     ): Promise<void> {
         for (const c of characteristics) {
             c.characteristicUuid = GattUtils.uuidToNobleUuid(c.characteristicUuid);

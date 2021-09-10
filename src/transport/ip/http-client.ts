@@ -8,10 +8,97 @@ import PairingProtocol, { PairingData, SessionKeys, PairMethods } from '../../pr
 import { TLV } from '../../model/tlv';
 
 export interface GetCharacteristicsOptions {
+    /**
+     * Boolean value that determines whether or not the response should include metadata.
+     * If true the response must include the following properties if they exist for the
+     * characteristic: ”format”, ”unit”, ”minValue”, ”maxValue”, ”minStep”, and ”maxLen”.
+     * Default: false
+     */
     meta?: boolean;
+
+    /**
+     * Boolean value that determines whether or not the response should include the permissions
+     * of the characteristic.
+     * Default: false
+     */
     perms?: boolean;
+
+    /**
+     * Boolean value that determines whether or not the response should include the type of characteristic.
+     * Default: false
+     */
     type?: boolean;
+
+    /**
+     * Boolean value that determines whether or not the ”ev” property of the characteristic should be
+     * included in the response
+     * Default: false
+     */
     ev?: boolean;
+}
+
+export interface SetCharacteristicsObject {
+    /**
+     * The instance ID of the accessory that contains the characteristic to be written.
+     */
+    aid?: number;
+
+    /**
+     * The instance ID of the characteristic to be written.
+     */
+    iid?: number;
+
+    /**
+     * Property that contains the value to be written to the characteristic. Required
+     */
+    value: unknown;
+
+    /**
+     * Optional property that contains a base 64 encoded string of the authorization data
+     * associated with the characteristic.
+     */
+    authData?: string;
+
+    /**
+     * Optional property that indicates if remote access was used to send the request.
+     * A value of true indicates remote access was used.
+     */
+    remote?: boolean;
+
+    /**
+     * Optional property that indicates whether a value is expected in the response to the
+     * write operation.
+     */
+    r?: boolean;
+}
+
+interface WriteCharacteristicsObject extends SetCharacteristicsObject {
+    /**
+     * The instance ID of the accessory that contains the characteristic to be written.
+     */
+    aid?: number;
+
+    /**
+     * The instance ID of the characteristic to be written.
+     */
+    iid?: number;
+}
+
+interface EventCharacteristicsObject {
+    /**
+     * The instance ID of the accessory that contains the characteristic to be written.
+     */
+    aid: number;
+
+    /**
+     * The instance ID of the characteristic to be written.
+     */
+    iid: number;
+
+    /**
+     * Property that indicates the state of event notifications for the characteristic.
+     */
+    ev: boolean;
 }
 
 export default class HttpClient extends EventEmitter {
@@ -257,7 +344,7 @@ export default class HttpClient extends EventEmitter {
      *
      * @returns {Promise} Promise which resolves to the JSON document.
      */
-    async getAccessories(): Promise<Record<string, unknown>> {
+    async getAccessories(): Promise<Characteristic.Accessories> {
         const connection = new HttpConnection(this.address, this.port);
         const keys = await this._pairVerify(connection);
         connection.setSessionKeys(keys);
@@ -275,14 +362,14 @@ export default class HttpClient extends EventEmitter {
     /**
      * Read a set of characteristics.
      *
-     * @param {string[]} characteristics - List of characteristics ID to get in form ["iid.aid", ...]
+     * @param {string[]} characteristics - List of characteristics ID to get in form ["aid.iid", ...]
      * @param {GetCharacteristicsOptions?} options - Options dictating what metadata to fetch
      * @returns {Promise} Promise which resolves to the JSON document.
      */
     async getCharacteristics(
         characteristics: string[],
         options: GetCharacteristicsOptions = {}
-    ): Promise<Record<string, unknown>> {
+    ): Promise<{ characteristics: Characteristic.CharacteristicObject[] }> {
         options = Object.assign(
             {
                 meta: false,
@@ -330,7 +417,7 @@ export default class HttpClient extends EventEmitter {
     async setCharacteristics(characteristics: Record<string, unknown>): Promise<Record<string, unknown>> {
         const connection = new HttpConnection(this.address, this.port);
         const data = {
-            characteristics: <{ aid: number; iid: number; value: unknown }[]>[],
+            characteristics: <WriteCharacteristicsObject[]>[],
         };
 
         const keys = await this._pairVerify(connection);
@@ -338,7 +425,8 @@ export default class HttpClient extends EventEmitter {
 
         for (const cid in characteristics) {
             const parts = cid.split('.');
-            data.characteristics.push({
+
+            let dataObject: WriteCharacteristicsObject = {
                 aid: parseInt(parts[0], 10),
                 iid: parseInt(parts[1], 10),
                 value: characteristics[cid],
@@ -369,7 +457,7 @@ export default class HttpClient extends EventEmitter {
     async subscribeCharacteristics(characteristics: string[]): Promise<HttpConnection> {
         const connection = new HttpConnection(this.address, this.port);
         const data = {
-            characteristics: <{ aid: number; iid: number; ev: boolean }[]>[],
+            characteristics: <EventCharacteristicsObject[]>[],
         };
 
         const keys = await this._pairVerify(connection);

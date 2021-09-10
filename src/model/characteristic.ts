@@ -3,6 +3,40 @@
  *
  * See Chapter 8
  */
+export interface Accessories {
+    accessories: {
+        aid: number;
+        services: {
+            iid: number;
+            type: string;
+            characteristics: CharacteristicObject[];
+            primary?: boolean;
+            hidden?: boolean;
+        }[];
+    }[];
+}
+
+export interface CharacteristicObject {
+    serviceUuid?: string; // added for convenience
+    aid?: number; // added for convenience
+    iid?: number;
+    type?: string;
+    value?: unknown;
+    perms?: string[];
+    ev?: boolean;
+    description?: string;
+    format?: string;
+    unit?: string;
+    minValue?: number;
+    maxValue?: number;
+    minStep?: number;
+    maxLen?: number;
+    maxDataLen?: number;
+    'valid-values'?: number[];
+    'valid-values-range'?: number[];
+    TTL?: number;
+    pid?: number;
+}
 
 const UuidSuffix = '-0000-1000-8000-0026BB765291';
 
