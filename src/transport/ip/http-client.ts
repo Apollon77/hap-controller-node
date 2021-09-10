@@ -118,6 +118,10 @@ export default class HttpClient extends EventEmitter {
 
     private _pairingConnection?: HttpConnection;
 
+    private subscriptionConnection?: HttpConnection;
+
+    private subscribedCharacteristics: string[] = [];
+
     /**
      * Initialize the HttpClient object.
      *
@@ -261,6 +265,7 @@ export default class HttpClient extends EventEmitter {
      * @returns {Promise} Promise which resolves to the generated session keys.
      */
     private async _pairVerify(connection: HttpConnection): Promise<SessionKeys> {
+        debug('Start Pair-Verify process ...');
         // M1
         const m1 = await this.pairingProtocol.buildPairVerifyM1();
         const m2 = await connection.post('/pair-verify', m1, 'application/pairing+tlv8');
@@ -275,6 +280,7 @@ export default class HttpClient extends EventEmitter {
         // M4
         await this.pairingProtocol.parsePairVerifyM4(m4.body);
 
+        debug('Finished Pair-Verify process ...');
         return this.pairingProtocol.getSessionKeys();
     }
 
@@ -471,13 +477,14 @@ export default class HttpClient extends EventEmitter {
      * Subscribe to events for a set of characteristics.
      *
      * @fires HttpClient#event
-     * @fires HttpClient#disconnect
+     * @fires HttpClient#event-disconnect
      * @param {String[]} characteristics - List of characteristic IDs to subscribe to,
-     *                                       in form ["iid.aid", ...]
-     * @returns {Promise} Promise which resolves to the HttpConnection object.
+     *                                       in form ["aid.iid", ...]
+     * @returns {Promise} Promise
      */
-    async subscribeCharacteristics(characteristics: string[]): Promise<HttpConnection> {
-        const connection = new HttpConnection(this.address, this.port);
+    async subscribeCharacteristics(characteristics: string[]): Promise<void> {
+        const connection = this.subscriptionConnection || new HttpConnection(this.address, this.port);
+
         const data = {
             characteristics: <EventCharacteristicsObject[]>[],
         };
@@ -485,33 +492,50 @@ export default class HttpClient extends EventEmitter {
         const keys = await this._pairVerify(connection);
         connection.setSessionKeys(keys);
 
+        const newSubscriptions: string[] = [];
         for (const cid of characteristics) {
+            if (this.subscribedCharacteristics.includes(cid)) {
+                // cid already subscribed, so we do not need to subscribe again
+                continue;
+            }
+            newSubscriptions.push(cid);
             const parts = cid.split('.');
             data.characteristics.push({
-                aid: parseInt(parts[0], 10),
-                iid: parseInt(parts[1], 10),
+                aid: parseInt(parts[0].trim(), 10),
+                iid: parseInt(parts[1].trim(), 10),
                 ev: true,
             });
         }
 
-        connection.on('event', (ev) => {
-            /**
-             * Event emitted with characteristic value changes
-             *
-             * @event HttpClient#event
-             */
-            this.emit('event', JSON.parse(ev));
-        });
+        if (data.characteristics.length) {
+            if (!this.subscriptionConnection) {
+                connection.on('event', (ev) => {
+                    /**
+                     * Event emitted with characteristic value changes
+                     *
+                     * @event HttpClient#event
+                     * @type {Object} Event TODO
+                     */
+                    this.emit('event', JSON.parse(ev));
+                });
 
-        connection.on('disconnect', () => {
-            /**
-             * Event emitted when subscription connection got disconnected.
-             * You need to manually resubscribe!
-             *
-             * @event HttpClient#disconnect
-             */
-            this.emit('disconnect', {});
-        });
+                connection.on('disconnect', () => {
+                    delete this.subscriptionConnection;
+                    if (this.subscribedCharacteristics.length) {
+                        /**
+                         * Event emitted when subscription connection got disconnected, but
+                         * still some characteristics are subscribed.
+                         * You need to manually resubscribe!
+                         *
+                         * @event HttpClient#event-disconnect
+                         * @type {string[]} List of the subscribed characteristics for resubscribe handling
+                         */
+                        this.emit('event-disconnect', this.subscribedCharacteristics);
+                        this.subscribedCharacteristics = [];
+                    }
+                });
+                this.subscriptionConnection = connection;
+            }
 
         const response = await connection.put(
             '/characteristics',
@@ -520,27 +544,49 @@ export default class HttpClient extends EventEmitter {
             true
         );
 
-        if (response.statusCode !== 204 && response.statusCode !== 207) {
-            throw new Error(`Subscribe failed with status ${response.statusCode}`);
+            if (response.statusCode !== 204 && response.statusCode !== 207) {
+                if (!this.subscribedCharacteristics.length) {
+                    connection.close();
+                    delete this.subscriptionConnection;
+                }
+                throw new HomekitControllerError(
+                    `Subscribe failed with status ${response.statusCode}`,
+                    response.statusCode,
+                    response.body
+                );
+            }
+            this.subscribedCharacteristics = this.subscribedCharacteristics.concat(newSubscriptions);
         }
-
-        return connection;
     }
 
     /**
      * Unsubscribe from events for a set of characteristics.
      *
      * @param {String[]} characteristics - List of characteristic IDs to
-     *                   unsubscribe from
-     * @param {HttpConnection} connection - Existing HttpConnection object
+     *                   unsubscribe from in form ["aid.iid", ...],
+     *                   if ommited all currently subscribed characteristics will be unsubscribed
      * @returns {Promise} Promise which resolves when the procedure is done.
      */
-    async unsubscribeCharacteristics(characteristics: string[], connection: HttpConnection): Promise<void> {
+    async unsubscribeCharacteristics(characteristics?: string[]): Promise<void> {
+        if (!this.subscriptionConnection || !this.subscribedCharacteristics.length) {
+            return;
+        }
+
+        if (!characteristics) {
+            characteristics = this.subscribedCharacteristics;
+        }
+
         const data = {
             characteristics: <{ aid: number; iid: number; ev: boolean }[]>[],
         };
 
+        const unsubscribedCharacteristics: string[] = [];
         for (const cid of characteristics) {
+            if (this.subscribedCharacteristics.includes(cid)) {
+                continue;
+            }
+
+            unsubscribedCharacteristics.push(cid);
             const parts = cid.split('.');
             data.characteristics.push({
                 aid: parseInt(parts[0], 10),
@@ -549,11 +595,41 @@ export default class HttpClient extends EventEmitter {
             });
         }
 
-        const response = await connection.put('/characteristics', Buffer.from(JSON.stringify(data)));
+        if (data.characteristics.length) {
+            const response = await this.subscriptionConnection.put(
+                '/characteristics',
+                Buffer.from(JSON.stringify(data))
+            );
 
-        if (response.statusCode !== 204 && response.statusCode !== 207) {
-            throw new Error(`Unsubscribe failed with status ${response.statusCode}`);
+            if (response.statusCode !== 204 && response.statusCode !== 207) {
+                throw new HomekitControllerError(
+                    `Unsubscribe failed with status ${response.statusCode}`,
+                    response.statusCode,
+                    response.body
+                );
+            }
+
+            unsubscribedCharacteristics.forEach((characteristic) => {
+                const index = this.subscribedCharacteristics.indexOf(characteristic);
+                if (index > -1) {
+                    this.subscribedCharacteristics.splice(index, 1);
+                }
+            });
+
+            if (!this.subscribedCharacteristics.length) {
+                this.subscriptionConnection.close();
+                delete this.subscriptionConnection;
+            }
         }
+    }
+
+    /**
+     * Get the list of subscribed characteristics
+     *
+     * @returns {string[]} Array with subscribed entries in form ["aid.iid", ...]
+     */
+    getSubscribedCharacteristics(): string[] {
+        return this.subscribedCharacteristics;
     }
 
     /**

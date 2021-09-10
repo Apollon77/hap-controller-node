@@ -13,6 +13,9 @@ import * as Service from '../../model/service';
 import { decodeBuffer, TLV } from '../../model/tlv';
 import { Characteristic as NobleCharacteristic, Peripheral as NoblePeripheral } from '@abandonware/noble';
 import { DiscoveryPairingFeatureFlags } from '../ip/ip-discovery';
+import Debug from 'debug';
+
+const debug = Debug('hap-controller:gatt-client');
 
 export interface GetCharacteristicsOptions {
     meta?: boolean;
@@ -43,6 +46,15 @@ export default class GattClient extends EventEmitter {
     private queue: GattUtils.OpQueue;
 
     private _pairingConnection?: GattConnection;
+
+    private subscriptionConnection?: GattConnection;
+
+    private subscribedCharacteristics: {
+        characteristicUuid: string;
+        serviceUuid: string;
+        iid: number;
+        format: string;
+    }[] = [];
 
     /**
      * Initialize the GattClient object.
@@ -482,6 +494,7 @@ export default class GattClient extends EventEmitter {
      * @returns {Promise} Promise which resolves when the pairing has been verified.
      */
     private async _pairVerify(connection: GattConnection): Promise<void> {
+        debug('Start Pair-Verify process ...');
         const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const characteristicUuid = GattUtils.uuidToNobleUuid(
             Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-verify')
@@ -665,6 +678,7 @@ export default class GattClient extends EventEmitter {
 
         const keys = await this.pairingProtocol.getSessionKeys();
         connection.setSessionKeys(keys);
+        debug('Finished Pair-Verify process ...');
     }
 
     /**
@@ -1560,6 +1574,7 @@ export default class GattClient extends EventEmitter {
      * Subscribe to events for a set of characteristics.
      *
      * @fires HttpClient#event
+     * @fires HttpClient#event-disconnect
      * @param {Object[]} characteristics - Characteristics to subscribe to, as a
      *                   list of objects:
      *                   {characteristicUuid, serviceUuid, iid, format}
@@ -1569,60 +1584,113 @@ export default class GattClient extends EventEmitter {
         return this._queueOperation(async () => {
             const newSubscriptions: GattSubscriptionCharacteristicData[] = [];
             for (const c of characteristics) {
+                if (this.subscribedCharacteristics.find((char) => char.iid === c.iid)) {
+                    // cid already subscribed, so we do not need to subscribe again
+                    continue;
+                }
                 c.characteristicUuid = GattUtils.uuidToNobleUuid(c.characteristicUuid);
                 c.serviceUuid = GattUtils.uuidToNobleUuid(c.serviceUuid);
+                newSubscriptions.push(c);
             }
 
-            const connection = new GattConnection(this.peripheral);
-            await connection.connect();
+            if (newSubscriptions.length) {
+                let connection: GattConnection;
+                if (this.subscriptionConnection) {
+                    connection = this.subscriptionConnection;
+                } else {
+                    connection = this.subscriptionConnection = new GattConnection(this.peripheral);
+                    await connection.connect();
+                    connection.once('disconnected', () => {
+                        delete this.subscriptionConnection;
+                        if (this.subscribedCharacteristics.length) {
+                            /**
+                             * Event emitted when subscription connection got disconnected, but
+                             * still some characteristics are subscribed.
+                             * You need to manually resubscribe!
+                             *
+                             * @event GattClient#event-disconnect
+                             * @type {Object[]} List of the subscribed characteristics for resubscribe handling
+                             */
+                            this.emit('event-disconnect', this.subscribedCharacteristics);
+                            this.subscribedCharacteristics = [];
+                        }
+                    });
+                }
 
-            const { characteristics: discoveredCharacteristics } = await new GattUtils.Watcher(
-                this.peripheral,
-                this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
-                    Array.from(new Set(characteristics.map((c) => c.serviceUuid))),
-                    Array.from(new Set(characteristics.map((c) => c.characteristicUuid)))
-                )
-            ).getPromise();
+                await this._pairVerify(connection);
+
+                const { characteristics: discoveredCharacteristics } = await new GattUtils.Watcher(
+                    this.peripheral,
+                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
+                        Array.from(new Set(newSubscriptions.map((c) => c.serviceUuid))),
+                        Array.from(new Set(newSubscriptions.map((c) => c.characteristicUuid)))
+                    )
+                ).getPromise();
 
             const queue = new GattUtils.OpQueue();
             let lastOp = Promise.resolve();
 
-            for (const c of characteristics) {
-                const characteristic = discoveredCharacteristics.find((d) => {
-                    return (
-                        (<{ _serviceUuid: string }>(<unknown>d))._serviceUuid === c.serviceUuid &&
-                        d.uuid === c.characteristicUuid
-                    );
-                });
+                for (const c of newSubscriptions) {
+                    const characteristic = discoveredCharacteristics.find((d) => {
+                        return (
+                            (<{ _serviceUuid: string }>(<unknown>d))._serviceUuid === c.serviceUuid &&
+                            d.uuid === c.characteristicUuid
+                        );
+                    });
 
                 if (!characteristic) {
                     throw new Error(`Characteristic not found: ${JSON.stringify(c)}`);
                 }
 
-                lastOp = queue.queue(async () => {
-                    await new GattUtils.Watcher(this.peripheral, characteristic.subscribeAsync()).getPromise();
-                });
-
-                characteristic.on('data', (data: Buffer) => {
-                    // Indications come up as empty buffers. A characteristic read
-                    // should be triggered when this happens.
-                    if (Buffer.isBuffer(data) && data.length === 0) {
-                        this.getCharacteristics([c], {}, connection).then((res) => {
-                            /**
-                             * Event emitted with characteristic value changes
-                             *
-                             * @event GattClient#event
-                             */
-                            this.emit('event', res);
-                        });
+                    if (!characteristic.properties.includes('indicate')) {
+                        throw new Error(`Characteristic not available to subscribe: ${JSON.stringify(c)}`);
                     }
-                });
-            }
+
+                    lastOp = queue.queue(async () => {
+                        await new GattUtils.Watcher(this.peripheral, characteristic.subscribeAsync()).getPromise();
+                    });
+
+                    characteristic.on('data', async (data: Buffer) => {
+                        // Indications come up as empty buffers. A characteristic read
+                        // should be triggered when this happens.
+                        if (Buffer.isBuffer(data) && data.length === 0) {
+                            if (!this.subscriptionConnection) {
+                                return;
+                            }
+                            try {
+                                const res = await this.getCharacteristics([c], {}, this.subscriptionConnection);
+                                /**
+                                 * Event emitted with characteristic value changes
+                                 *
+                                 * @event GattClient#event
+                                 */
+                                this.emit('event', res);
+                            } catch (err) {
+                                // ignore
+                            }
+                        }
+                    });
+                }
 
             await lastOp;
 
-            return connection;
+                this.subscribedCharacteristics = this.subscribedCharacteristics.concat(newSubscriptions);
+            }
         });
+    }
+
+    /**
+     * Get the list of subscribed characteristics
+     *
+     * @returns {Object[]} Array with subscribed entries as objects with characteristics and service UUIDs and such
+     */
+    getSubscribedCharacteristics(): {
+        characteristicUuid: string;
+        serviceUuid: string;
+        iid: number;
+        format: string;
+    }[] {
+        return this.subscribedCharacteristics;
     }
 
     /**
@@ -1636,6 +1704,14 @@ export default class GattClient extends EventEmitter {
     async unsubscribeCharacteristics(
         characteristics?: { characteristicUuid: string; serviceUuid: string }[]
     ): Promise<void> {
+        if (!this.subscriptionConnection || !this.subscribedCharacteristics.length) {
+            return;
+        }
+
+        if (!characteristics) {
+            characteristics = this.subscribedCharacteristics;
+        }
+
         for (const c of characteristics) {
             c.characteristicUuid = GattUtils.uuidToNobleUuid(c.characteristicUuid);
             c.serviceUuid = GattUtils.uuidToNobleUuid(c.serviceUuid);
@@ -1670,5 +1746,12 @@ export default class GattClient extends EventEmitter {
         }
 
         await lastOp;
+
+        if (!this.subscribedCharacteristics.length) {
+            this.subscriptionConnection.disconnect().catch(() => {
+                // ignore
+            });
+            delete this.subscriptionConnection;
+        }
     }
 }
