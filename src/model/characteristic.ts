@@ -165,7 +165,7 @@ const CharacteristicMapByUuid = {
     [`0000011C${UuidSuffix}`]: 'public.hap.characteristic.zoom-optical',
     [`0000011D${UuidSuffix}`]: 'public.hap.characteristic.zoom-digital',
     [`0000011E${UuidSuffix}`]: 'public.hap.characteristic.image-rotation',
-    [`0000011F${UuidSuffix}`]: 'public.hap.characteristic.image-mirror',
+    [`0000011F${UuidSuffix}`]: 'public.hap.characteristic.image-mirror', // image-mirroring??
     [`00000120${UuidSuffix}`]: 'public.hap.characteristic.streaming-status',
     [`00000123${UuidSuffix}`]: 'public.hap.characteristic.supported-target-configuration',
     [`00000124${UuidSuffix}`]: 'public.hap.characteristic.target-list',
@@ -173,18 +173,22 @@ const CharacteristicMapByUuid = {
     [`00000128${UuidSuffix}`]: 'public.hap.characteristic.selected-audio-stream-configuration',
     [`00000130${UuidSuffix}`]: 'public.hap.characteristic.supported-data-stream-transport-configuration',
     [`00000131${UuidSuffix}`]: 'public.hap.characteristic.setup-data-stream-transport',
-    [`00000132${UuidSuffix}`]: 'public.hap.characteristic.siri-input-type',
+    [`00000132${UuidSuffix}`]: 'public.hap.characteristic.siri.input-type',
     [`00000134${UuidSuffix}`]: 'public.hap.characteristic.target-visibility-state',
     [`00000135${UuidSuffix}`]: 'public.hap.characteristic.current-visibility-state',
     [`00000136${UuidSuffix}`]: 'public.hap.characteristic.display-order',
     [`00000137${UuidSuffix}`]: 'public.hap.characteristic.target-media-state',
-    [`00000201${UuidSuffix}`]: 'public.hap.characteristic.setup-transfer-transport',
+    [`00000138${UuidSuffix}`]: 'public.hap.characteristic.data-stream.hap-transport',
+    [`00000139${UuidSuffix}`]: 'public.hap.characteristic.data-stream.hap-transport-interrupt',
+    [`00000143${UuidSuffix}`]: 'public.hap.characteristic.characteristic-value-transition-control',
+    [`00000144${UuidSuffix}`]: 'public.hap.characteristic.supported-characteristic-value-transition-configuration', // since iOS 14
+    [`00000201${UuidSuffix}`]: 'public.hap.characteristic.setup-transfer-transport', // since iOS 13.4
     [`00000202${UuidSuffix}`]: 'public.hap.characteristic.supported-transfer-transport-configuration',
     [`00000205${UuidSuffix}`]: 'public.hap.characteristic.supported-camera-recording-configuration',
     [`00000206${UuidSuffix}`]: 'public.hap.characteristic.supported-video-recording-configuration',
     [`00000207${UuidSuffix}`]: 'public.hap.characteristic.supported-audio-recording-configuration',
     [`00000209${UuidSuffix}`]: 'public.hap.characteristic.selected-camera-recording-configuration',
-    [`0000020C${UuidSuffix}`]: 'public.hap.characteristic.network-client-control',
+    [`0000020C${UuidSuffix}`]: 'public.hap.characteristic.network-client-control', // network-client-profile-control??
     [`0000020D${UuidSuffix}`]: 'public.hap.characteristic.network-client-status-control',
     [`0000020E${UuidSuffix}`]: 'public.hap.characteristic.router-status',
     [`00000210${UuidSuffix}`]: 'public.hap.characteristic.supported-router-configuration',
@@ -203,6 +207,55 @@ const CharacteristicMapByUuid = {
     [`00000225${UuidSuffix}`]: 'public.hap.characteristic.periodic-snapshots-active',
     [`00000226${UuidSuffix}`]: 'public.hap.characteristic.recording-audio-active',
     [`00000227${UuidSuffix}`]: 'public.hap.characteristic.manually-disabled',
+    [`00000229${UuidSuffix}`]: 'public.hap.characteristic.video-analysis-active', // since iOS 14
+    [`0000022B${UuidSuffix}`]: 'public.hap.characteristic.current-transport',
+    [`0000022C${UuidSuffix}`]: 'public.hap.characteristic.wifi-capabilities', // since iOS 14
+    [`0000022D${UuidSuffix}`]: 'public.hap.characteristic.wifi-configuration-control', // since iOS 14
+    [`00000232${UuidSuffix}`]: 'public.hap.characteristic.operating-state-response', // since iOS 14
+    [`00000233${UuidSuffix}`]: 'public.hap.characteristic.supported-firmware-update-configuration',
+    [`00000234${UuidSuffix}`]: 'public.hap.characteristic.firmware-update-readiness',
+    [`00000235${UuidSuffix}`]: 'public.hap.characteristic.firmware-update-status',
+    [`00000238${UuidSuffix}`]: 'public.hap.characteristic.supported-diagnostics-snapshot', // since iOS 14
+    [`0000023A${UuidSuffix}`]: 'public.hap.characteristic.sleep-interval', // since iOS 14
+    [`0000023B${UuidSuffix}`]: 'public.hap.characteristic.activity-interval',
+    [`0000023C${UuidSuffix}`]: 'public.hap.characteristic.ping',
+    [`0000023D${UuidSuffix}`]: 'public.hap.characteristic.event-retransmission-maximum',
+    [`0000023E${UuidSuffix}`]: 'public.hap.characteristic.event-transmission-counters',
+    [`0000023F${UuidSuffix}`]: 'public.hap.characteristic.received-signal-strength-indication', // since iOS 14
+    [`00000241${UuidSuffix}`]: 'public.hap.characteristic.signal-to-noise-ratio', // since iOS 14
+    [`00000242${UuidSuffix}`]: 'public.hap.characteristic.transmit-power', // since iOS 14
+    [`00000243${UuidSuffix}`]: 'public.hap.characteristic.maximum-transmit-power', // since iOS 14
+    [`00000244${UuidSuffix}`]: 'public.hap.characteristic.receiver-sensitivity', // since iOS 14
+    [`00000245${UuidSuffix}`]: 'public.hap.characteristic.cca-signal-detect-threshold',
+    [`00000247${UuidSuffix}`]: 'public.hap.characteristic.mac.retransmission-maximum', // since iOS 14
+    [`00000248${UuidSuffix}`]: 'public.hap.characteristic.mac.transmission-counters',
+    [`00000249${UuidSuffix}`]: 'public.hap.characteristic.staged-firmware-version',
+    [`0000024B${UuidSuffix}`]: 'public.hap.characteristic.characteristic-value-active-transition-count',
+    [`0000024C${UuidSuffix}`]: 'public.hap.characteristic.supported-diagnostics-modes',
+    [`00000246${UuidSuffix}`]: 'public.hap.characteristic.cca-energy-detect-threshold',
+    [`0000024A${UuidSuffix}`]: 'public.hap.characteristic.heart-beat',
+    [`0000024D${UuidSuffix}`]: 'public.hap.characteristic.selected-diagnostics-modes',
+    [`00000254${UuidSuffix}`]: 'public.hap.characteristic.siri.endpoint-session-status',
+    [`00000255${UuidSuffix}`]: 'public.hap.characteristic.siri.enable',
+    [`00000256${UuidSuffix}`]: 'public.hap.characteristic.siri.listening',
+    [`00000257${UuidSuffix}`]: 'public.hap.characteristic.siri.touch-to-use',
+    [`00000258${UuidSuffix}`]: 'public.hap.characteristic.siri.light-on-use',
+    [`0000025A${UuidSuffix}`]: 'public.hap.characteristic.siri.engine-version',
+    [`0000025B${UuidSuffix}`]: 'public.hap.characteristic.air-play.enable',
+    [`00000261${UuidSuffix}`]: 'public.hap.characteristic.access-code.supported-configuration',
+    [`00000262${UuidSuffix}`]: 'public.hap.characteristic.access-code.control-point',
+    [`00000263${UuidSuffix}`]: 'public.hap.characteristic.configuration-state',
+    [`00000264${UuidSuffix}`]: 'public.hap.characteristic.nfc-access-control-point', // since iOS 15
+    [`00000265${UuidSuffix}`]: 'public.hap.characteristic.nfc-access-supported-configuration', // since iOS 15
+    [`00000268${UuidSuffix}`]: 'public.hap.characteristic.supported-asset-types',
+    [`00000269${UuidSuffix}`]: 'public.hap.characteristic.asset-update-readiness',
+    [`0000026B${UuidSuffix}`]: 'public.hap.characteristic.multifunction-button',
+    [`0000026C${UuidSuffix}`]: 'public.hap.characteristic.hardware.finish', // since iOS 15
+    [`00000702${UuidSuffix}`]: 'public.hap.characteristic.thread.node-capabilities',
+    [`00000703${UuidSuffix}`]: 'public.hap.characteristic.thread.status',
+    [`00000704${UuidSuffix}`]: 'public.hap.characteristic.thread.control-point',
+    [`00000706${UuidSuffix}`]: 'public.hap.characteristic.thread.open-thread-version',
+
 };
 /* eslint-enable max-len */
 

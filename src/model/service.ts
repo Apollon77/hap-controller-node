@@ -71,6 +71,17 @@ const ServiceMapByUuid = {
     [`0000021A${UuidSuffix}`]: 'public.hap.service.camera-operating-mode',
     [`00000221${UuidSuffix}`]: 'public.hap.service.power-management',
     [`00000228${UuidSuffix}`]: 'public.hap.service.smart-speaker',
+    [`0000022A${UuidSuffix}`]: 'public.hap.service.wifi-transport',
+    [`00000237${UuidSuffix}`]: 'public.hap.service.diagnostics',
+    [`00000239${UuidSuffix}`]: 'public.hap.service.accessory-runtime-information',
+    [`00000253${UuidSuffix}`]: 'public.hap.service.siri-endpoint',
+    [`00000260${UuidSuffix}`]: 'public.hap.service.access-code', // since iOS 15
+    [`00000266${UuidSuffix}`]: 'public.hap.service.nfc-access', // since iOS 15
+    [`00000267${UuidSuffix}`]: 'public.hap.service.asset-update',
+    [`0000026A${UuidSuffix}`]: 'public.hap.service.assistant',
+    [`00000270${UuidSuffix}`]: 'public.hap.service.accessory-metrics',
+    [`00000701${UuidSuffix}`]: 'public.hap.service.thread-transport',
+
 };
 
 const ServiceMapByService = Object.assign({}, ...Object.entries(ServiceMapByUuid).map(([a, b]) => ({ [b]: a })));
