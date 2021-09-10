@@ -130,6 +130,15 @@ export default class GattClient extends EventEmitter {
     }
 
     /**
+     * Verify the provided PIN
+     *
+     * @param pin {string} PIN
+     */
+    verifyPin(pin: string): void {
+        this.pairingProtocol.verifyPin(pin);
+    }
+
+    /**
      * Run the identify routine on a device.
      *
      * @returns {Promise} Promise which resolves if identify succeeded.
@@ -275,6 +284,15 @@ export default class GattClient extends EventEmitter {
      *
      * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
      * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
+     *                                         * No provided flags is equivalent to providing
+     *                                           kPairingFlag_Transient and kPairingFlag_Split and in this case a new
+     *                                           code is generated randomly by the device (if supported) or the
+     *                                           pre-defined code is used
+     *                                         * If only the flag kPairingFlag_Split is provided the code which
+     *                                           was created on the device from last transient+split call is reused
+     *                                           and needs to be provided in finishPairing by user of this library
+     *                                         * If only the flag kPairingFlag_Transient is provided the session
+     *                                           security is enabled but no final pairing is done
      * @returns {Promise} Promise which resolves to opaque
      * pairing data when complete.
      */
@@ -360,13 +378,11 @@ export default class GattClient extends EventEmitter {
         pin: string
     ): Promise<void> {
         const { tlv, iid, characteristic } = pairingData;
-        const re = /^\d{3}-\d{2}-\d{3}$/;
-        if (!re.test(pin)) {
-            throw new Error('Invalid PIN, Make sure Format is XXX-XX-XXX');
-        }
+
+        this.verifyPin(pin);
 
         if (!this._pairingConnection) {
-            throw new Error('No pairing connection');
+            throw new Error('Must call startPairing() first');
         }
 
         return this._queueOperation(async () => {
@@ -421,15 +437,20 @@ export default class GattClient extends EventEmitter {
 
                 await this.pairingProtocol.parsePairSetupM4(m4Body.get(GattConstants.Types['HAP-Param-Value'])!);
 
-                const m5 = await this.pairingProtocol.buildPairSetupM5();
-                const m5Data = new Map();
-                m5Data.set(GattConstants.Types['HAP-Param-Value'], m5);
-                m5Data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
-                const m5Pdu = this.gattProtocol.buildCharacteristicWriteRequest(
-                    this.getNextTransactionId(),
-                    iid,
-                    m5Data
-                );
+                if (!this.pairingProtocol.isTransientOnlyPairSetup()) {
+                    // According to specs for a transient pairSetup process no M5/6 is done, which should end in a
+                    // "non pairing" result and we miss AccessoryId and AccessoryLTPK, but the current session is
+                    // authenticated
+
+                    const m5 = await this.pairingProtocol.buildPairSetupM5();
+                    const m5Data = new Map();
+                    m5Data.set(GattConstants.Types['HAP-Param-Value'], m5);
+                    m5Data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
+                    const m5Pdu = this.gattProtocol.buildCharacteristicWriteRequest(
+                        this.getNextTransactionId(),
+                        iid,
+                        m5Data
+                    );
 
                 pdus = await connection.writeCharacteristic(characteristic, [m5Pdu]);
                 if (pdus.length === 0) {
@@ -462,7 +483,8 @@ export default class GattClient extends EventEmitter {
                     throw new Error('M6: HAP-Param-Value missing');
                 }
 
-                await this.pairingProtocol.parsePairSetupM6(m6Body.get(GattConstants.Types['HAP-Param-Value'])!);
+                    await this.pairingProtocol.parsePairSetupM6(m6Body.get(GattConstants.Types['HAP-Param-Value'])!);
+                }
 
                 // eslint-disable-next-line @typescript-eslint/no-empty-function
                 await connection.disconnect().catch(() => {});

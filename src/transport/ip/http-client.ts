@@ -69,11 +69,29 @@ export default class HttpClient extends EventEmitter {
     }
 
     /**
+     * Verify the provided PIN
+     *
+     * @param pin {string} PIN
+     */
+    verifyPin(pin: string): void {
+        this.pairingProtocol.verifyPin(pin);
+    }
+
+    /**
      * Begins the pairing process. For devices with random pins, this
      * will cause it to show the pin on the screen.
      *
      * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
      * @param {PairingTypeFlags} [pairFlags] - Flags to use for Pairing for PairSetup
+     *                                         * No provided flags is equivalent to providing
+     *                                           kPairingFlag_Transient and kPairingFlag_Split and in this case a new
+     *                                           code is generated randomly by the device (if supported) or the
+     *                                           pre-defined code is used
+     *                                         * If only the flag kPairingFlag_Split is provided the code which
+     *                                           was created on the device from last transient+split call is reused
+     *                                           and needs to be provided in finishPairing by user of this library
+     *                                         * If only the flag kPairingFlag_Transient is provided the session
+     *                                           security is enabled but no final pairing is done
      * @returns {Promise} Promise which resolves to opaque pairing data when complete.
      */
     async startPairing(pairMethod = PairMethods.PairSetupWithAuth, pairFlags = 0): Promise<TLV> {
@@ -99,10 +117,7 @@ export default class HttpClient extends EventEmitter {
             throw new Error('Must call startPairing() first');
         }
 
-        const re = /^\d{3}-\d{2}-\d{3}$/;
-        if (!re.test(pin)) {
-            throw new Error('Invalid PIN, Make sure Format is XXX-XX-XXX');
-        }
+        this.verifyPin(pin);
 
         const connection = this._pairingConnection;
         delete this._pairingConnection;
@@ -114,12 +129,18 @@ export default class HttpClient extends EventEmitter {
         // M4
         await this.pairingProtocol.parsePairSetupM4(m4.body);
 
-        // M5
-        const m5 = await this.pairingProtocol.buildPairSetupM5();
-        const m6 = await connection.post('/pair-setup', m5, 'application/pairing+tlv8');
+        if (!this.pairingProtocol.isTransientOnlyPairSetup()) {
+            // According to specs for a transient pairSetup process no M5/6 is done, which should end in a
+            // "non pairing" result and we miss AccessoryId and AccessoryLTPK, but the current session is
+            // authenticated
 
-        // M6
-        await this.pairingProtocol.parsePairSetupM6(m6.body);
+            // M5
+            const m5 = await this.pairingProtocol.buildPairSetupM5();
+            const m6 = await connection.post('/pair-setup', m5, 'application/pairing+tlv8');
+
+            // M6
+            await this.pairingProtocol.parsePairSetupM6(m6.body);
+        }
         await connection.close();
     }
 

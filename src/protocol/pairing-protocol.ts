@@ -107,6 +107,8 @@ export default class PairingProtocol {
 
     private pairSetup: {
         sessionKey: Buffer | null;
+        pairMethod: number | null;
+        pairTypeFlags: number | null;
     };
 
     private pairVerify: {
@@ -160,6 +162,8 @@ export default class PairingProtocol {
 
         this.pairSetup = {
             sessionKey: null,
+            pairMethod: null,
+            pairTypeFlags: 0,
         };
 
         this.pairVerify = {
@@ -209,6 +213,48 @@ export default class PairingProtocol {
     }
 
     /**
+     * Return info if the current pairSetup process is Transient only
+     *
+     * @returns {boolean} Boolean indicating if the pairSetup process has only the transient flag set
+     */
+    isTransientOnlyPairSetup(): boolean {
+        if (this.pairSetup.pairMethod !== PairMethods.PairSetup) {
+            return false;
+        }
+        return this.pairSetup.pairTypeFlags === PairingTypeFlags.kPairingFlag_Transient;
+    }
+
+    /**
+     * Verify the provided PIN
+     *
+     * @param pin {string} PIN
+     */
+    verifyPin(pin: string): void {
+        const re = /^\d{3}-\d{2}-\d{3}$/;
+        if (!re.test(pin)) {
+            throw new Error('Invalid PIN format, Make sure Format is XXX-XX-XXX');
+        }
+
+        const invalidPins = [
+            '000-00-000',
+            '111-11-111',
+            '222-22-222',
+            '333-33-333',
+            '444-44-444',
+            '555-55-555',
+            '666-66-666',
+            '777-77-777',
+            '888-88-888',
+            '999-99-999',
+            '123-45-678',
+            '876-54-321',
+        ];
+        if (invalidPins.includes(pin)) {
+            throw new Error('Invalid PIN');
+        }
+    }
+
+    /**
      * Build step 1 of the pair setup process.
      *
      * @param {PairMethods} [pairMethod] - Method to use for pairing, default is PairSetupWithAuth
@@ -219,8 +265,10 @@ export default class PairingProtocol {
         const data = new Map();
         data.set(Types.kTLVType_State, Buffer.from([Steps.M1]));
         data.set(Types.kTLVType_Method, Buffer.from([pairMethod]));
+        this.pairSetup.pairMethod = pairMethod;
         if (pairMethod === PairMethods.PairSetup && pairFlags) {
             data.set(Types.kTLVType_Flags, Buffer.from([pairFlags]));
+            this.pairSetup.pairTypeFlags = pairFlags;
         }
         const packet = encodeObject(data);
         return packet;
