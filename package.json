@@ -9,7 +9,8 @@
     "build": "tsc -p .",
     "lint": "eslint .",
     "prettier": "prettier -u -w '*.ts' examples src __tests__",
-    "test": "jest"
+    "test": "jest",
+    "release": "release-script"
   },
   "repository": {
     "type": "git",
@@ -37,6 +38,7 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
+    "@alcalzone/release-script": "^2.2.1",
     "@types/debug": "4.1.7",
     "@types/dnssd": "^0.4.2",
     "@types/libsodium-wrappers": "^0.7.9",
