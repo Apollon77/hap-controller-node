@@ -2,6 +2,7 @@
  * Class to represent a multi-request GATT connection.
  */
 
+import { EventEmitter } from 'events';
 import { OpQueue, Watcher } from './gatt-utils';
 import sodium from 'libsodium-wrappers';
 import { Characteristic, Peripheral } from '@abandonware/noble';
@@ -10,7 +11,7 @@ import Debug from 'debug';
 
 const debug = Debug('hap-controller:gatt-connection');
 
-export default class GattConnection {
+export default class GattConnection extends EventEmitter {
     private peripheral: Peripheral;
 
     private sessionKeys: SessionKeys | null;
@@ -27,6 +28,7 @@ export default class GattConnection {
      * @param {Object} peripheral - Peripheral object from noble
      */
     constructor(peripheral: Peripheral) {
+        super();
         this.peripheral = peripheral;
         this.sessionKeys = null;
         this.a2cCounter = 0;
@@ -54,6 +56,13 @@ export default class GattConnection {
     }
 
     /**
+     *
+     */
+    isPeripheralConnected(): boolean {
+        return this.peripheral.state === 'connected';
+    }
+
+    /**
      * Connect to the peripheral if necessary.
      *
      * @returns {Promise} Promise which resolves when the connection is
@@ -65,10 +74,17 @@ export default class GattConnection {
         }
 
         if (this.peripheral.state !== 'disconnected') {
+            debug('disconnect peripheral to reconnect');
             await new Watcher(this.peripheral, this.peripheral.disconnectAsync()).getPromise();
         }
 
+        debug('connect peripheral');
         await new Watcher(this.peripheral, this.peripheral.connectAsync()).getPromise();
+        this.emit('connected');
+        this.peripheral.once('disconnect', () => {
+            debug('Peripheral disconnected');
+            this.emit('disconnected');
+        });
     }
 
     /**
@@ -78,6 +94,7 @@ export default class GattConnection {
      */
     async disconnect(): Promise<void> {
         if (this.peripheral.state !== 'disconnected') {
+            debug('disconnect peripheral');
             await new Watcher(this.peripheral, this.peripheral.disconnectAsync()).getPromise();
         }
     }
