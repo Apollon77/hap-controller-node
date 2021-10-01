@@ -38,7 +38,7 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "@alcalzone/release-script": "^2.2.1",
+    "@alcalzone/release-script": "^3.4.0",
     "@types/debug": "4.1.7",
     "@types/dnssd": "^0.4.2",
     "@types/libsodium-wrappers": "^0.7.9",
