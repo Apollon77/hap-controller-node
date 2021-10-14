@@ -253,8 +253,8 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 * (Apollon77) Make sure getAccessories return UUIDs in all cases for HTTP and BLE
 * (Apollon77) enhance the perms returned from GattClient and add ev-connected, ev-disconnected and ev-broadcast if supported
 * (Apollon77) Define own Error class (HomekitControllerError) to transport enhanced info like statusCode and error body
-* (Apollon77) Allow to set a also other properties for the characteristic on write (like authData, remote and r)
+* (Apollon77) Allow also other properties to be set for the characteristic on write (like authData, remote and r)
 * (Apollon77) Update service and characteristic lists based on HapNodeJS because official specs are still from 2019
-* (Apollon77) adjustments to logic that was not working for me (mostly BLE stuff like flagging primary/hidden service in the data))
-* (Apollon77) smaller adjustments in docs and types
+* (Apollon77) adjustments to logic that was not working for me (mostly BLE things like flagging primary/hidden service in the data))
+* (Apollon77) smaller adjustments and restructuring of docs and type definitions
 
