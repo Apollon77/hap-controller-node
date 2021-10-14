@@ -107,6 +107,14 @@ export interface HapServiceBle {
      * id: the deviceId, same value as deviceId for convenient reasons with IP
      */
     id: string;
+    /**
+     * ci: the category identifier, same value as ACID for convenient reasons with IP
+     */
+    ci: number;
+    /**
+     * availableToPair: is the device available for pairing?
+     */
+    availableToPair: boolean;
 }
 
 /**
@@ -268,6 +276,7 @@ export default class BLEDiscovery extends EventEmitter {
             // SH,
             'c#': CN,
             id: formattedId,
+            ci: ACID,
             availableToPair: !!(SF & DiscoveryPairingStatusFlags.AccessoryNotPaired),
         };
 
