@@ -4,12 +4,13 @@
 
 import { EventEmitter } from 'events';
 import HttpConnection from './http-connection';
-import PairingProtocol, { PairingData, SessionKeys, PairMethods } from '../../protocol/pairing-protocol';
+import PairingProtocol, { PairingData, PairMethods, SessionKeys } from '../../protocol/pairing-protocol';
 import { TLV } from '../../model/tlv';
 import Debug from 'debug';
 import * as Characteristic from '../../model/characteristic';
 import * as Service from '../../model/service';
 import { HomekitControllerError } from '../../index';
+import { Accessories } from '../../model/accessory';
 
 const debug = Debug('hap-controller:http-client');
 
@@ -360,7 +361,7 @@ export default class HttpClient extends EventEmitter {
      *
      * @returns {Promise} Promise which resolves to the JSON document.
      */
-    async getAccessories(): Promise<Characteristic.Accessories> {
+    async getAccessories(): Promise<Accessories> {
         const connection = new HttpConnection(this.address, this.port);
         const keys = await this._pairVerify(connection);
         connection.setSessionKeys(keys);
@@ -376,7 +377,7 @@ export default class HttpClient extends EventEmitter {
             );
         }
 
-        const res: Characteristic.Accessories = JSON.parse(response.body.toString());
+        const res: Accessories = JSON.parse(response.body.toString());
         res.accessories.forEach((accessory) => {
             accessory.services.forEach((service) => {
                 service.type = Service.ensureServiceUuid(service.type);

@@ -14,6 +14,7 @@ import { decodeBuffer, TLV } from '../../model/tlv';
 import { Characteristic as NobleCharacteristic, Peripheral as NoblePeripheral } from '@abandonware/noble';
 import { DiscoveryPairingFeatureFlags } from '../ip/ip-discovery';
 import Debug from 'debug';
+import { Accessories } from '../../model/accessory';
 
 const debug = Debug('hap-controller:gatt-client');
 
@@ -961,7 +962,7 @@ export default class GattClient extends EventEmitter {
      *
      * @returns {Promise} Promise which resolves to the JSON document.
      */
-    getAccessories(): Promise<Characteristic.Accessories> {
+    getAccessories(): Promise<Accessories> {
         const pairingUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const protocolInformationUuid = GattUtils.uuidToNobleUuid(
             Service.uuidFromService('public.hap.service.protocol.information.service')
@@ -970,7 +971,7 @@ export default class GattClient extends EventEmitter {
         const serviceSignatureUuid = GattUtils.uuidToNobleUuid(GattConstants.ServiceSignatureUuid);
 
         return this._queueOperation(async () => {
-            const database: Characteristic.Accessories = {
+            const database: Accessories = {
                 accessories: [
                     {
                         aid: 1,

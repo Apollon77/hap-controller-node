@@ -4,6 +4,17 @@
  * See Chapters 6 and 9.
  */
 
+import { CharacteristicObject } from './characteristic';
+
+export interface ServiceObject {
+    iid: number;
+    type: string;
+    characteristics: CharacteristicObject[];
+    primary?: boolean;
+    hidden?: boolean;
+    linked?: number[];
+}
+
 const UuidSuffix = '-0000-1000-8000-0026BB765291';
 
 const ServiceMapByUuid = {
