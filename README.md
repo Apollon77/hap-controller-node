@@ -258,3 +258,5 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 * (Apollon77) adjustments to logic that was not working for me (mostly BLE things like flagging primary/hidden service in the data))
 * (Apollon77) smaller adjustments and restructuring of docs and type definitions
 
+### till 0.5.0 (16.08.2021)
+Former versions published by @mrstegeman
