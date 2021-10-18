@@ -7,7 +7,7 @@ import sodium from 'libsodium-wrappers';
 import { v4 as uuidv4 } from 'uuid';
 import { SRP, SrpClient } from 'fast-srp-hap';
 import HKDF from 'node-hkdf-sync';
-import { HomekitControllerError } from '../index';
+import HomekitControllerError from '../model/error';
 
 const Steps = {
     M1: 1,

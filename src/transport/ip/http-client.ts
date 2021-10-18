@@ -9,8 +9,8 @@ import { TLV } from '../../model/tlv';
 import Debug from 'debug';
 import * as Characteristic from '../../model/characteristic';
 import * as Service from '../../model/service';
-import { HomekitControllerError } from '../../index';
 import { Accessories } from '../../model/accessory';
+import HomekitControllerError from '../../model/error';
 
 const debug = Debug('hap-controller:http-client');
 
