@@ -238,6 +238,10 @@ Examples of all of the APIs can be found in the [GitHub repo](https://github.com
 Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-node/issues) or a [pull request](https://github.com/Apollon77/hap-controller-node/pulls) if you find something that could use improvement.
 
 ## Changelog
+
+### __WORK IN PROGRESS__
+* (Apollon77) move error class in own file and adjust some typings
+
 ### 0.6.0 (2021-10-17)
 * (Apollon77) Take over library (thanks to @mrstegeman for his great work so far and the ongoing consulting!)
 * (Apollon77) Add automatic detection for PairMethod to use based on discovery details (HTTP) or via extra method to read data from device (BLE)
