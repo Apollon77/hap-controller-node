@@ -238,8 +238,7 @@ Examples of all of the APIs can be found in the [GitHub repo](https://github.com
 Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-node/issues) or a [pull request](https://github.com/Apollon77/hap-controller-node/pulls) if you find something that could use improvement.
 
 ## Changelog
-
-### __WORK IN PROGRESS__
+### 0.6.1 (2021-10-18)
 * (Apollon77) move error class in own file and adjust some typings
 
 ### 0.6.0 (2021-10-17)
