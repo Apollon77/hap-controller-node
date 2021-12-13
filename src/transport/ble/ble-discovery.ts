@@ -200,6 +200,7 @@ export default class BLEDiscovery extends EventEmitter {
      * Stop an ongoing discovery process.
      */
     stop(): void {
+        this.scanEnabled = false;
         noble.stopScanning();
         noble.removeListener('stateChange', this.handleStateChange);
         noble.removeListener('scanStart', this.handleScanStart);
@@ -222,7 +223,7 @@ export default class BLEDiscovery extends EventEmitter {
     }
 
     private _handleScanStop(): void {
-        if (this.scanEnabled) {
+        if (this.scanEnabled && (<{ _state: string }>(<unknown>noble))._state === 'poweredOn') {
             noble.startScanning([], true);
         }
     }
