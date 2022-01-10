@@ -516,8 +516,10 @@ export default class HttpClient extends EventEmitter {
             characteristics: <EventCharacteristicsObject[]>[],
         };
 
-        const keys = await this._pairVerify(connection);
-        connection.setSessionKeys(keys);
+        if (!this.subscriptionConnection) {
+            const keys = await this._pairVerify(connection);
+            connection.setSessionKeys(keys);
+        }
 
         const newSubscriptions: string[] = [];
         for (const cid of characteristics) {

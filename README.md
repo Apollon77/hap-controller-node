@@ -242,6 +242,7 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 ### __WORK IN PROGRES__
 * (Apollon77) check ble status before start a new scanning process
 * (Apollon77) remember that scanning was stoppen when stop() is called
+* (Apollon77) Fix pot. hanging response if multiple subscriptions are done on same device
 
 ### 0.6.1 (2021-10-18)
 * (Apollon77) move error class in own file and adjust some typings
