@@ -36,6 +36,18 @@ discovery.on('serviceUp', (service) => {
         }
     });
 
+    client.on('event-disconnect', (formerSubscribes) => {
+        console.log(JSON.stringify(formerSubscribes, null, 2));
+
+        // resubscribe if wanted:
+        // client
+        //         .subscribeCharacteristics(formerSubscribes)
+        //         .then(() => {
+        //             console.log('Re-Subscribed!');
+        //         })
+        //         .catch((e) => console.error(e));
+    });
+
     client
         .subscribeCharacteristics(characteristics)
         .then(() => console.log('Subscribed!'))
