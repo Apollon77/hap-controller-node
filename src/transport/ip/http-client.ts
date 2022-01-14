@@ -11,6 +11,7 @@ import * as Characteristic from '../../model/characteristic';
 import * as Service from '../../model/service';
 import { Accessories } from '../../model/accessory';
 import HomekitControllerError from '../../model/error';
+import * as GattUtils from '../ble/gatt-utils';
 
 const debug = Debug('hap-controller:http-client');
 
@@ -123,6 +124,8 @@ export default class HttpClient extends EventEmitter {
 
     private subscribedCharacteristics: string[] = [];
 
+    private pairingQueue: GattUtils.OpQueue;
+
     /**
      * Initialize the HttpClient object.
      *
@@ -137,6 +140,17 @@ export default class HttpClient extends EventEmitter {
         this.address = address;
         this.port = port;
         this.pairingProtocol = new PairingProtocol(pairingData);
+        this.pairingQueue = new GattUtils.OpQueue();
+    }
+
+    /**
+     * Queue an operation for the pairing.
+     *
+     * @param {function} op - Function to add to the queue
+     * @returns {Promise} Promise which resolves when the function is called.
+     */
+    private _queuePairingOperation<T>(op: () => Promise<T>): Promise<T> {
+        return this.pairingQueue.queue(op);
     }
 
     /**
@@ -266,23 +280,25 @@ export default class HttpClient extends EventEmitter {
      * @returns {Promise} Promise which resolves to the generated session keys.
      */
     private async _pairVerify(connection: HttpConnection): Promise<SessionKeys> {
-        debug('Start Pair-Verify process ...');
-        // M1
-        const m1 = await this.pairingProtocol.buildPairVerifyM1();
-        const m2 = await connection.post('/pair-verify', m1, 'application/pairing+tlv8');
+        return this._queuePairingOperation(async () => {
+            debug('Start Pair-Verify process ...');
+            // M1
+            const m1 = await this.pairingProtocol.buildPairVerifyM1();
+            const m2 = await connection.post('/pair-verify', m1, 'application/pairing+tlv8');
 
-        // M2
-        await this.pairingProtocol.parsePairVerifyM2(m2.body);
+            // M2
+            await this.pairingProtocol.parsePairVerifyM2(m2.body);
 
-        // M3
-        const m3 = await this.pairingProtocol.buildPairVerifyM3();
-        const m4 = await connection.post('/pair-verify', m3, 'application/pairing+tlv8');
+            // M3
+            const m3 = await this.pairingProtocol.buildPairVerifyM3();
+            const m4 = await connection.post('/pair-verify', m3, 'application/pairing+tlv8');
 
-        // M4
-        await this.pairingProtocol.parsePairVerifyM4(m4.body);
+            // M4
+            await this.pairingProtocol.parsePairVerifyM4(m4.body);
 
-        debug('Finished Pair-Verify process ...');
-        return this.pairingProtocol.getSessionKeys();
+            debug('Finished Pair-Verify process ...');
+            return this.pairingProtocol.getSessionKeys();
+        });
     }
 
     /**

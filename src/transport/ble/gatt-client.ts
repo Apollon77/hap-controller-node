@@ -46,6 +46,8 @@ export default class GattClient extends EventEmitter {
 
     private queue: GattUtils.OpQueue;
 
+    private pairingQueue: GattUtils.OpQueue;
+
     private _pairingConnection?: GattConnection;
 
     private subscriptionConnection?: GattConnection;
@@ -72,6 +74,7 @@ export default class GattClient extends EventEmitter {
         this.gattProtocol = new GattProtocol();
         this.tid = -1;
         this.queue = new GattUtils.OpQueue();
+        this.pairingQueue = new GattUtils.OpQueue();
     }
 
     /**
@@ -82,6 +85,16 @@ export default class GattClient extends EventEmitter {
      */
     private _queueOperation<T>(op: () => Promise<T>): Promise<T> {
         return this.queue.queue(op);
+    }
+
+    /**
+     * Queue an operation for the pairing.
+     *
+     * @param {function} op - Function to add to the queue
+     * @returns {Promise} Promise which resolves when the function is called.
+     */
+    private _queuePairingOperation<T>(op: () => Promise<T>): Promise<T> {
+        return this.pairingQueue.queue(op);
     }
 
     /**
@@ -504,67 +517,148 @@ export default class GattClient extends EventEmitter {
      * @returns {Promise} Promise which resolves when the pairing has been verified.
      */
     private async _pairVerify(connection: GattConnection): Promise<void> {
-        debug('Start Pair-Verify process ...');
-        const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
-        const characteristicUuid = GattUtils.uuidToNobleUuid(
-            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-verify')
-        );
+        return this._queuePairingOperation(async () => {
+            debug('Start Pair-Verify process ...');
+            const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
+            const characteristicUuid = GattUtils.uuidToNobleUuid(
+                Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-verify')
+            );
 
-        const { characteristics } = await new GattUtils.Watcher(
-            this.peripheral,
-            this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
-        ).getPromise();
+            const { characteristics } = await new GattUtils.Watcher(
+                this.peripheral,
+                this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
+            ).getPromise();
 
-        const characteristic = characteristics.find((c) => {
-            return c.uuid === characteristicUuid;
-        });
+            const characteristic = characteristics.find((c) => {
+                return c.uuid === characteristicUuid;
+            });
 
-        if (!characteristic) {
-            throw new Error('pair-verify characteristic not found');
-        }
-        const iid = await this._readInstanceId(characteristic);
-
-        if (this.pairingProtocol.canResume()) {
-            const m1 = await this.pairingProtocol.buildPairResumeM1();
-            const m1Data = new Map();
-            m1Data.set(GattConstants.Types['HAP-Param-Value'], m1);
-            m1Data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
-            let pdu = this.gattProtocol.buildCharacteristicWriteRequest(this.getNextTransactionId(), iid, m1Data);
-
-            let pdus = await connection.writeCharacteristic(characteristic, [pdu]);
-            if (pdus.length === 0) {
-                throw new Error('M1: No response');
+            if (!characteristic) {
+                throw new Error('pair-verify characteristic not found');
             }
+            const iid = await this._readInstanceId(characteristic);
 
-            let response = pdus[0];
-            let status = response.readUInt8(2);
-            if (status !== 0) {
-                throw new Error(`M1: Got error status: ${status}`);
-            }
+            if (this.pairingProtocol.canResume()) {
+                const m1 = await this.pairingProtocol.buildPairResumeM1();
+                const m1Data = new Map();
+                m1Data.set(GattConstants.Types['HAP-Param-Value'], m1);
+                m1Data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
+                let pdu = this.gattProtocol.buildCharacteristicWriteRequest(this.getNextTransactionId(), iid, m1Data);
 
-            if (response.length < 5) {
-                const pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
-                pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+                let pdus = await connection.writeCharacteristic(characteristic, [pdu]);
                 if (pdus.length === 0) {
-                    throw new Error('M2: No response');
+                    throw new Error('M1: No response');
                 }
 
-                const response = pdus[0];
-                const status = response.readUInt8(2);
+                let response = pdus[0];
+                let status = response.readUInt8(2);
                 if (status !== 0) {
-                    throw new Error(`M2: Got error status: ${status}`);
+                    throw new Error(`M1: Got error status: ${status}`);
                 }
-            }
 
-            const m2Body = decodeBuffer(response.slice(5, response.length));
+                if (response.length < 5) {
+                    const pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
+                    pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+                    if (pdus.length === 0) {
+                        throw new Error('M2: No response');
+                    }
 
-            if (!m2Body.has(GattConstants.Types['HAP-Param-Value'])) {
-                throw new Error('M2: HAP-Param-Value missing');
-            }
+                    const response = pdus[0];
+                    const status = response.readUInt8(2);
+                    if (status !== 0) {
+                        throw new Error(`M2: Got error status: ${status}`);
+                    }
+                }
 
-            try {
-                await this.pairingProtocol.parsePairResumeM2(m2Body.get(GattConstants.Types['HAP-Param-Value'])!);
-            } catch (_) {
+                const m2Body = decodeBuffer(response.slice(5, response.length));
+
+                if (!m2Body.has(GattConstants.Types['HAP-Param-Value'])) {
+                    throw new Error('M2: HAP-Param-Value missing');
+                }
+
+                try {
+                    await this.pairingProtocol.parsePairResumeM2(m2Body.get(GattConstants.Types['HAP-Param-Value'])!);
+                } catch (_) {
+                    await this.pairingProtocol.parsePairVerifyM2(m2Body.get(GattConstants.Types['HAP-Param-Value'])!);
+
+                    const m3 = await this.pairingProtocol.buildPairVerifyM3();
+                    const m3Data = new Map();
+                    m3Data.set(GattConstants.Types['HAP-Param-Value'], m3);
+                    m3Data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
+                    pdu = this.gattProtocol.buildCharacteristicWriteRequest(this.getNextTransactionId(), iid, m3Data);
+
+                    pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+                    if (pdus.length === 0) {
+                        throw new Error('M3: No response');
+                    }
+
+                    response = pdus[0];
+                    status = response.readUInt8(2);
+                    if (status !== 0) {
+                        throw new Error(`M3: Got error status: ${status}`);
+                    }
+
+                    if (response.length < 5) {
+                        pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
+                        pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+                        if (pdus.length === 0) {
+                            throw new Error('M4: No response');
+                        }
+
+                        response = pdus[0];
+                        status = response.readUInt8(2);
+                        if (status !== 0) {
+                            throw new Error(`M4: Got error status: ${status}`);
+                        }
+                    }
+
+                    const m4Body = decodeBuffer(response.slice(5, response.length));
+
+                    if (!m4Body.has(GattConstants.Types['HAP-Param-Value'])) {
+                        throw new Error('M4: HAP-Param-Value missing');
+                    }
+
+                    await this.pairingProtocol.parsePairVerifyM4(m4Body.get(GattConstants.Types['HAP-Param-Value'])!);
+                }
+            } else {
+                const m1 = await this.pairingProtocol.buildPairVerifyM1();
+                const m1Data = new Map();
+                m1Data.set(GattConstants.Types['HAP-Param-Value'], m1);
+                m1Data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
+                let pdu = this.gattProtocol.buildCharacteristicWriteRequest(this.getNextTransactionId(), iid, m1Data);
+
+                let pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+                if (pdus.length === 0) {
+                    throw new Error('M1: No response');
+                }
+
+                let response = pdus[0];
+                let status = response.readUInt8(2);
+                if (status !== 0) {
+                    throw new Error(`M1: Got error status: ${status}`);
+                }
+
+                if (response.length < 5) {
+                    pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
+
+                    pdus = await connection.writeCharacteristic(characteristic, [pdu]);
+                    if (pdus.length === 0) {
+                        throw new Error('M2: No response');
+                    }
+
+                    response = pdus[0];
+                    status = response.readUInt8(2);
+                    if (status !== 0) {
+                        throw new Error(`M2: Got error status: ${status}`);
+                    }
+                }
+
+                const m2Body = decodeBuffer(response.slice(5, response.length));
+
+                if (!m2Body.has(GattConstants.Types['HAP-Param-Value'])) {
+                    throw new Error('M2: HAP-Param-Value missing');
+                }
+
                 await this.pairingProtocol.parsePairVerifyM2(m2Body.get(GattConstants.Types['HAP-Param-Value'])!);
 
                 const m3 = await this.pairingProtocol.buildPairVerifyM3();
@@ -586,6 +680,7 @@ export default class GattClient extends EventEmitter {
 
                 if (response.length < 5) {
                     pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
+
                     pdus = await connection.writeCharacteristic(characteristic, [pdu]);
                     if (pdus.length === 0) {
                         throw new Error('M4: No response');
@@ -606,91 +701,11 @@ export default class GattClient extends EventEmitter {
 
                 await this.pairingProtocol.parsePairVerifyM4(m4Body.get(GattConstants.Types['HAP-Param-Value'])!);
             }
-        } else {
-            const m1 = await this.pairingProtocol.buildPairVerifyM1();
-            const m1Data = new Map();
-            m1Data.set(GattConstants.Types['HAP-Param-Value'], m1);
-            m1Data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
-            let pdu = this.gattProtocol.buildCharacteristicWriteRequest(this.getNextTransactionId(), iid, m1Data);
 
-            let pdus = await connection.writeCharacteristic(characteristic, [pdu]);
-            if (pdus.length === 0) {
-                throw new Error('M1: No response');
-            }
-
-            let response = pdus[0];
-            let status = response.readUInt8(2);
-            if (status !== 0) {
-                throw new Error(`M1: Got error status: ${status}`);
-            }
-
-            if (response.length < 5) {
-                pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
-
-                pdus = await connection.writeCharacteristic(characteristic, [pdu]);
-                if (pdus.length === 0) {
-                    throw new Error('M2: No response');
-                }
-
-                response = pdus[0];
-                status = response.readUInt8(2);
-                if (status !== 0) {
-                    throw new Error(`M2: Got error status: ${status}`);
-                }
-            }
-
-            const m2Body = decodeBuffer(response.slice(5, response.length));
-
-            if (!m2Body.has(GattConstants.Types['HAP-Param-Value'])) {
-                throw new Error('M2: HAP-Param-Value missing');
-            }
-
-            await this.pairingProtocol.parsePairVerifyM2(m2Body.get(GattConstants.Types['HAP-Param-Value'])!);
-
-            const m3 = await this.pairingProtocol.buildPairVerifyM3();
-            const m3Data = new Map();
-            m3Data.set(GattConstants.Types['HAP-Param-Value'], m3);
-            m3Data.set(GattConstants.Types['HAP-Param-Return-Response'], Buffer.from([1]));
-            pdu = this.gattProtocol.buildCharacteristicWriteRequest(this.getNextTransactionId(), iid, m3Data);
-
-            pdus = await connection.writeCharacteristic(characteristic, [pdu]);
-            if (pdus.length === 0) {
-                throw new Error('M3: No response');
-            }
-
-            response = pdus[0];
-            status = response.readUInt8(2);
-            if (status !== 0) {
-                throw new Error(`M3: Got error status: ${status}`);
-            }
-
-            if (response.length < 5) {
-                pdu = this.gattProtocol.buildCharacteristicReadRequest(this.getNextTransactionId(), iid);
-
-                pdus = await connection.writeCharacteristic(characteristic, [pdu]);
-                if (pdus.length === 0) {
-                    throw new Error('M4: No response');
-                }
-
-                response = pdus[0];
-                status = response.readUInt8(2);
-                if (status !== 0) {
-                    throw new Error(`M4: Got error status: ${status}`);
-                }
-            }
-
-            const m4Body = decodeBuffer(response.slice(5, response.length));
-
-            if (!m4Body.has(GattConstants.Types['HAP-Param-Value'])) {
-                throw new Error('M4: HAP-Param-Value missing');
-            }
-
-            await this.pairingProtocol.parsePairVerifyM4(m4Body.get(GattConstants.Types['HAP-Param-Value'])!);
-        }
-
-        const keys = await this.pairingProtocol.getSessionKeys();
-        connection.setSessionKeys(keys);
-        debug('Finished Pair-Verify process ...');
+            const keys = await this.pairingProtocol.getSessionKeys();
+            connection.setSessionKeys(keys);
+            debug('Finished Pair-Verify process ...');
+        });
     }
 
     /**
