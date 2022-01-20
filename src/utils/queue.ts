@@ -24,8 +24,7 @@ export class OpQueue {
             });
         });
         // eslint-disable-next-line @typescript-eslint/no-empty-function
-        this._current = ret.catch(() => {
-        });
+        this._current = ret.catch(() => {});
         return ret;
     }
 }

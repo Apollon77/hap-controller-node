@@ -16,7 +16,7 @@ discovery.on('serviceUp', async (service) => {
     const client = new HttpClient(service.id, service.address, service.port, pairingData);
 
     try {
-        await client.removePairing(client.pairingProtocol.iOSDevicePairingID)
+        await client.removePairing(client.pairingProtocol.iOSDevicePairingID);
         client.close();
         console.log(`${service.name}: done!`);
     } catch (e) {

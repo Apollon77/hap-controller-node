@@ -200,4 +200,3 @@ export class Watcher<T> {
         this.peripheral.removeListener('disconnect', this.reject);
     }
 }
-

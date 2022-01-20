@@ -241,11 +241,16 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 
 ## Changelog
 
-### __WORK IN PROGRES__
+### __WORK IN PROGRESS__
+* (Apollon77) Introduce `close` method to tear down all connections that are potentially open
+* (Apollon77) Use a persistent connection by default to prevent the need to verify the pairing for each call. Can be disabled using a new `options` parameter in constructor. You must call `close()` if you do not need the instance any longer
+* (Apollon77) Make sure calls on a http connection are queued to not overlap
 * (Apollon77) check ble status before start a new scanning process
-* (Apollon77) remember that scanning was stoppen when stop() is called
+* (Apollon77) remember that scanning was stopped when stop() is called
 * (Apollon77) Fix pot. hanging response if multiple subscriptions are done on same device
+* (Apollon77) Deprecate "GattConnection.iPeripheralConnected" in favor of a unified "isConnected" for BLE and HTTP connections
 * (Apollon77) Prevent parallel pair verify calls by queuing them
+* (Apollon77) Convert all examples to async/await for better readability and add close calls
 
 ### 0.6.1 (2021-10-18)
 * (Apollon77) move error class in own file and adjust some typings
