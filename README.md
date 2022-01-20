@@ -235,9 +235,33 @@ bleClient.unsubscribeCharacteristics(
 
 Examples of all of the APIs can be found in the [GitHub repo](https://github.com/Apollon77/hap-controller-node/tree/master/examples).
 
+## Troubleshooting
+
+### For BLE issues
+* If you have issues that the BLE connection do not work our you get Errors when the adapter tries to initialize the BluetoothLE connection, please first check and follow https://github.com/noble/noble#running-on-linux
+* Does the device have a Pairing Mode or such that needs to be activated first? But also read the manual careful, maybe the Pairing mode is for some other legacy protocol or bridge but not Apple Home.
+* Please make sure that your system is up-to-date including kernel `apt update && apt dist-upgrade`
+* Try to reset the relevant BLE device with e.g. `sudo hciconfig hci0 reset`
+* For issues also provide the output of `uname -a` and `lsusb`
+* Low level BLE device log can be obtained using `sudo hcidump -t -x >log.txt` (in a second shell additionally to run the script)
+
+### General advices
+* Basically if the error "pair-setup characteristic not found" pops up while trying to pair then the device do not support pairing via Homekit in it's current state. The adapter cn not do anything then!
+* Please make sure to enter the PIN mit Dashes in the form "XXX-XX-XXX". Other formats should be declined by the library already by an error, but just to make sure
+
+## Debugging
+When you have issues and want to report an Issue (see below) then enhanced debug log is always helpful.
+
+Please start your application using 
+
+`DEBUG=hap* node myprocess.js`
+
+and post the console log also in the issue. This will generate a log on protocol level.
+
 ## Contributing
 
 Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-node/issues) or a [pull request](https://github.com/Apollon77/hap-controller-node/pulls) if you find something that could use improvement.
+For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
 
