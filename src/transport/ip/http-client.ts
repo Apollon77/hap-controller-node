@@ -184,9 +184,9 @@ export default class HttpClient extends EventEmitter {
             this._defaultConnection.on('disconnect', () => {
                 debug('Persistent connection client got disconnected');
             });
-            debug('Create new persistent connection client');
+            debug('New persistent connection client initialized');
         } else {
-            debug('Create new connection client');
+            debug('New new connection client initialized');
         }
         return connection;
     }
