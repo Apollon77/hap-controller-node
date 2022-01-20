@@ -14,14 +14,18 @@ const characteristics = {
     '1.10': true,
 };
 
-discovery.on('serviceUp', (service) => {
-    console.log('Found device!');
+discovery.on('serviceUp', async (service) => {
+    console.log(`Found device: ${service.name}`);
 
     const client = new HttpClient(service.id, service.address, service.port, pairingData);
 
-    client
-        .setCharacteristics(characteristics)
-        .then(() => console.log('Done!'))
-        .catch((e) => console.error(e));
+    try {
+        await client.setCharacteristics(characteristics);
+        client.close();
+        console.log(`${service.name}: done!`);
+    } catch (e) {
+        console.error(`${service.name}:`, e);
+    }
 });
+
 discovery.start();

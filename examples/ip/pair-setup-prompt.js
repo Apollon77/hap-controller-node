@@ -22,6 +22,7 @@ discovery.on('serviceUp', async (service) => {
                     await client.finishPairing(data, pin);
                     console.log(`${service.name} paired! Keep the following pairing data safe:`);
                     console.log(JSON.stringify(client.getLongTermData(), null, 2));
+                    client.close();
                 } catch (e) {
                     console.error(`${service.name}: Error`, e);
                 }
@@ -31,4 +32,5 @@ discovery.on('serviceUp', async (service) => {
         }
     }
 });
+
 discovery.start();

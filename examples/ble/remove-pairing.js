@@ -10,14 +10,17 @@ const pairingData = {
     iOSDeviceLTPK: '...',
 };
 
-discovery.on('serviceUp', (service) => {
-    console.log('Found device!');
+discovery.on('serviceUp', async (service) => {
+    console.log(`Found device: ${service.name}`);
 
     const client = new GattClient(service.DeviceID, service.peripheral, pairingData);
 
-    client
-        .removePairing(client.pairingProtocol.iOSDevicePairingID)
-        .then(() => console.log('Done!'))
-        .catch((e) => console.error(e));
+    try {
+        await client.removePairing(client.pairingProtocol.iOSDevicePairingID);
+        console.log(`${service.name}: Done!`);
+    } catch (e) {
+        console.error(`${service.name}:`, e);
+    }
 });
+
 discovery.start();

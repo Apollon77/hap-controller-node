@@ -21,4 +21,5 @@ discovery.on('serviceUp', async (service) => {
         }
     }
 });
+
 discovery.start();

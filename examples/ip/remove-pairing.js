@@ -10,14 +10,18 @@ const pairingData = {
     iOSDeviceLTPK: '...',
 };
 
-discovery.on('serviceUp', (service) => {
+discovery.on('serviceUp', async (service) => {
     console.log(`Found device: ${service.name}`);
 
     const client = new HttpClient(service.id, service.address, service.port, pairingData);
 
-    client
-        .removePairing(client.pairingProtocol.iOSDevicePairingID)
-        .then(() => console.log(`${service.name}: done!`))
-        .catch((e) => console.error(`${service.name}:`, e));
+    try {
+        await client.removePairing(client.pairingProtocol.iOSDevicePairingID)
+        client.close();
+        console.log(`${service.name}: done!`);
+    } catch (e) {
+        console.error(`${service.name}:`, e);
+    }
 });
+
 discovery.start();

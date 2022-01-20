@@ -2,13 +2,17 @@ const { BLEDiscovery, GattClient } = require('hap-controller');
 
 const discovery = new BLEDiscovery();
 
-discovery.on('serviceUp', (service) => {
-    console.log('Found device!');
+discovery.on('serviceUp', async (service) => {
+    console.log(`Found device: ${service.name}`);
 
     const client = new GattClient(service.DeviceID, service.peripheral);
-    client
-        .identify()
-        .then(() => console.log('Done!'))
-        .catch((e) => console.error(e));
+
+    try {
+        await client.identify();
+        console.log(`${service.name}: Done!`);
+    } catch (e) {
+        console.error(`${service.name}:`, e);
+    }
 });
+
 discovery.start();

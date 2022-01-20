@@ -19,20 +19,22 @@ const characteristics = [
     },
 ];
 
-discovery.on('serviceUp', (service) => {
-    console.log('Found device!');
+discovery.on('serviceUp', async (service) => {
+    console.log(`Found device: ${service.name}`);
 
     const client = new GattClient(service.DeviceID, service.peripheral, pairingData);
 
     let count = 0;
-    client.on('event', (ev) => {
+    client.on('event', async (ev) => {
         console.log(JSON.stringify(ev, null, 2));
 
         if (++count >= 2) {
-            client
-                .unsubscribeCharacteristics(characteristics)
-                .then(() => console.log('Unsubscribed!'))
-                .catch((e) => console.error(e));
+            try {
+                await client.unsubscribeCharacteristics(characteristics);
+                console.log(`${service.name}: Unsubscribed!`);
+            } catch (e) {
+                console.error(`${service.name}:`, e);
+            }
         }
     });
 
@@ -40,17 +42,14 @@ discovery.on('serviceUp', (service) => {
         console.log(JSON.stringify(formerSubscribes, null, 2));
 
         // resubscribe if wanted:
-        // client
-        //         .subscribeCharacteristics(formerSubscribes)
-        //         .then(() => {
-        //             console.log('Re-Subscribed!');
-        //         })
-        //         .catch((e) => console.error(e));
+        // await client.subscribeCharacteristics(formerSubscribes);
     });
 
-    client
-        .subscribeCharacteristics(characteristics)
-        .then(() => console.log('Subscribed!'))
-        .catch((e) => console.error(e));
+    try {
+        await client.subscribeCharacteristics(characteristics);
+        console.log(`${service.name}: Subscribed!`);
+    } catch (e) {
+        console.error(`${service.name}:`, e);
+    }
 });
 discovery.start();

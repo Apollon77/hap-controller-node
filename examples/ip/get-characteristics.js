@@ -14,21 +14,29 @@ const characteristics = [
     '1.10', // aid.iid
 ];
 
-discovery.on('serviceUp', (service) => {
-    console.log('Found device!');
+discovery.on('serviceUp', async (service) => {
+    console.log(`Found device: ${service.name}`);
 
-    const client = new HttpClient(service.id, service.address, service.port, pairingData);
+    const client = new HttpClient(
+        service.id,
+        service.address,
+        service.port,
+        pairingData,
+        { usePersistentConnections: true }
+    );
 
-    client
-        .getCharacteristics(characteristics, {
+    try {
+        const ch = await client.getCharacteristics(characteristics, {
             meta: true,
             perms: true,
             type: true,
             ev: true,
-        })
-        .then((ch) => {
-            console.log(JSON.stringify(ch, null, 2));
-        })
-        .catch((e) => console.error(e));
+        });
+        client.close();
+        console.log(JSON.stringify(ch, null, 2));
+    } catch (e) {
+        console.error(`${service.name}:`, e);
+    }
 });
+
 discovery.start();
