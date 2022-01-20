@@ -9,6 +9,7 @@ import sodium from 'libsodium-wrappers';
 import { HTTPParser } from 'http-parser-js';
 import { SessionKeys } from '../../protocol/pairing-protocol';
 import Debug from 'debug';
+import { OpQueue } from '../../utils/queue';
 
 const debug = Debug('hap-controller:http-connection');
 
@@ -43,6 +44,8 @@ export default class HttpConnection extends EventEmitter {
 
     private c2aCounter: number;
 
+    private queue: OpQueue;
+
     /**
      * Initialize the HttpConnection object.
      *
@@ -58,6 +61,7 @@ export default class HttpConnection extends EventEmitter {
         this.sessionKeys = null;
         this.a2cCounter = 0;
         this.c2aCounter = 0;
+        this.queue = new OpQueue();
     }
 
     /**
@@ -67,6 +71,25 @@ export default class HttpConnection extends EventEmitter {
      */
     setSessionKeys(keys: SessionKeys): void {
         this.sessionKeys = keys;
+    }
+
+    /**
+     * Get the State of the connection
+     *
+     * @returns {Boolean} Connection State
+     */
+    isConnected(): boolean {
+        return this.state === State.READY;
+    }
+
+    /**
+     * Queue an operation for the connection.
+     *
+     * @param {function} op - Function to add to the queue
+     * @returns {Promise} Promise which resolves when the function is called.
+     */
+    private _queueOperation<T>(op: () => Promise<T>): Promise<T> {
+        return this.queue.queue(op);
     }
 
     /**
@@ -192,11 +215,13 @@ export default class HttpConnection extends EventEmitter {
      *                    response body.
      */
     request(body: Buffer, readEvents = false): Promise<HttpResponse> {
-        if (this.sessionKeys) {
-            return this._requestEncrypted(body, readEvents);
-        }
+        return this._queueOperation(async () => {
+            if (this.sessionKeys) {
+                return this._requestEncrypted(body, readEvents);
+            }
 
-        return this._requestClear(body, readEvents);
+            return this._requestClear(body, readEvents);
+        });
     }
 
     /**

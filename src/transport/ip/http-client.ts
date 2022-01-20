@@ -11,7 +11,7 @@ import * as Characteristic from '../../model/characteristic';
 import * as Service from '../../model/service';
 import { Accessories } from '../../model/accessory';
 import HomekitControllerError from '../../model/error';
-import * as GattUtils from '../ble/gatt-utils';
+import { OpQueue } from '../../utils/queue';
 
 const debug = Debug('hap-controller:http-client');
 
@@ -109,6 +109,15 @@ interface EventCharacteristicsObject {
     ev: boolean;
 }
 
+interface HttpClientOptions {
+    /**
+     * Set to true to use persistent connections for normal device interactions
+     * Without persistent connections a new pairing verification is rerquired
+     * before each call which delays the execution.
+     */
+    usePersistentConnections: boolean;
+}
+
 export default class HttpClient extends EventEmitter {
     deviceId: string;
 
@@ -120,11 +129,15 @@ export default class HttpClient extends EventEmitter {
 
     private _pairingConnection?: HttpConnection;
 
+    private _defaultConnection?: HttpConnection;
+
+    private usePersistentConnections = true;
+
     private subscriptionConnection?: HttpConnection;
 
     private subscribedCharacteristics: string[] = [];
 
-    private pairingQueue: GattUtils.OpQueue;
+    private pairingQueue: OpQueue;
 
     /**
      * Initialize the HttpClient object.
@@ -133,14 +146,62 @@ export default class HttpClient extends EventEmitter {
      * @param {string} address - IP address of the device
      * @param {number} port - HTTP port
      * @param {PairingData?} pairingData - existing pairing data
+     * @param {HttpClientOptions} options - additional options
      */
-    constructor(deviceId: string, address: string, port: number, pairingData?: PairingData) {
+    constructor(
+        deviceId: string,
+        address: string,
+        port: number,
+        pairingData?: PairingData,
+        options?: HttpClientOptions
+    ) {
         super();
         this.deviceId = deviceId;
         this.address = address;
         this.port = port;
         this.pairingProtocol = new PairingProtocol(pairingData);
-        this.pairingQueue = new GattUtils.OpQueue();
+        this.pairingQueue = new OpQueue();
+        this.usePersistentConnections = options?.usePersistentConnections || false;
+    }
+
+    /**
+     * Initialize or return an existing connection
+     *
+     * @private
+     * @returns {Promise<HttpConnection>} The connection to use
+     */
+    private async getDefaultVerifiedConnection(): Promise<HttpConnection> {
+        if (this._defaultConnection) {
+            debug('Reuse persistent connection client');
+            return this._defaultConnection;
+        }
+        const connection = new HttpConnection(this.address, this.port);
+        const keys = await this._pairVerify(connection);
+        connection.setSessionKeys(keys);
+
+        if (this.usePersistentConnections) {
+            this._defaultConnection = connection;
+            this._defaultConnection.on('disconnect', () => {
+                debug('Persistent connection client got disconnected');
+            });
+            debug('Create new persistent connection client');
+        } else {
+            debug('Create new connection client');
+        }
+        return connection;
+    }
+
+    /**
+     * Checks if a maybe persistent connection should be closed
+     *
+     * @param {HttpConnection} connection Connection which was returned by getDefaultVerifiedConnection()
+     * @private
+     */
+    private closeMaybePersistentConnection(connection: HttpConnection): void {
+        if (!this.usePersistentConnections || this._defaultConnection !== connection) {
+            connection.close();
+            debug('Close singe use connection client');
+        }
     }
 
     /**
@@ -218,7 +279,14 @@ export default class HttpClient extends EventEmitter {
         const m2 = await connection.post('/pair-setup', m1, 'application/pairing+tlv8');
 
         // M2
-        return this.pairingProtocol.parsePairSetupM2(m2.body);
+        try {
+            return this.pairingProtocol.parsePairSetupM2(m2.body);
+        } catch (e) {
+            // Close connection if we have an error
+            connection.close();
+            delete this._pairingConnection;
+            throw e;
+        }
     }
 
     /**
@@ -238,26 +306,29 @@ export default class HttpClient extends EventEmitter {
         const connection = this._pairingConnection;
         delete this._pairingConnection;
 
-        // M3
-        const m3 = await this.pairingProtocol.buildPairSetupM3(pairingData, pin);
-        const m4 = await connection.post('/pair-setup', m3, 'application/pairing+tlv8');
+        try {
+            // M3
+            const m3 = await this.pairingProtocol.buildPairSetupM3(pairingData, pin);
+            const m4 = await connection.post('/pair-setup', m3, 'application/pairing+tlv8');
 
-        // M4
-        await this.pairingProtocol.parsePairSetupM4(m4.body);
+            // M4
+            await this.pairingProtocol.parsePairSetupM4(m4.body);
 
-        if (!this.pairingProtocol.isTransientOnlyPairSetup()) {
-            // According to specs for a transient pairSetup process no M5/6 is done, which should end in a
-            // "non pairing" result and we miss AccessoryId and AccessoryLTPK, but the current session is
-            // authenticated
+            if (!this.pairingProtocol.isTransientOnlyPairSetup()) {
+                // According to specs for a transient pairSetup process no M5/6 is done, which should end in a
+                // "non pairing" result, and we miss AccessoryId and AccessoryLTPK, but the current session is
+                // authenticated
 
-            // M5
-            const m5 = await this.pairingProtocol.buildPairSetupM5();
-            const m6 = await connection.post('/pair-setup', m5, 'application/pairing+tlv8');
+                // M5
+                const m5 = await this.pairingProtocol.buildPairSetupM5();
+                const m6 = await connection.post('/pair-setup', m5, 'application/pairing+tlv8');
 
-            // M6
-            await this.pairingProtocol.parsePairSetupM6(m6.body);
+                // M6
+                await this.pairingProtocol.parsePairSetupM6(m6.body);
+            }
+        } finally {
+            connection.close();
         }
-        await connection.close();
     }
 
     /**
@@ -308,22 +379,22 @@ export default class HttpClient extends EventEmitter {
      * @returns {Promise} Promise which resolves when the process completes.
      */
     async removePairing(identifier: string | Buffer): Promise<void> {
-        const connection = new HttpConnection(this.address, this.port);
-        const keys = await this._pairVerify(connection);
-        connection.setSessionKeys(keys);
+        const connection = await this.getDefaultVerifiedConnection();
 
         if (typeof identifier === 'string') {
             identifier = PairingProtocol.bufferFromHex(identifier);
         }
 
-        // M1
-        const m1 = await this.pairingProtocol.buildRemovePairingM1(identifier);
-        const m2 = await connection.post('/pairings', m1, 'application/pairing+tlv8');
+        try {
+            // M1
+            const m1 = await this.pairingProtocol.buildRemovePairingM1(identifier);
+            const m2 = await connection.post('/pairings', m1, 'application/pairing+tlv8');
 
-        // M2
-        await this.pairingProtocol.parseRemovePairingM2(m2.body);
-
-        connection.close();
+            // M2
+            await this.pairingProtocol.parseRemovePairingM2(m2.body);
+        } finally {
+            this.closeMaybePersistentConnection(connection);
+        }
     }
 
     /**
@@ -335,18 +406,18 @@ export default class HttpClient extends EventEmitter {
      * @returns {Promise} Promise which resolves when the process is complete.
      */
     async addPairing(identifier: string, ltpk: Buffer, isAdmin: boolean): Promise<void> {
-        const connection = new HttpConnection(this.address, this.port);
-        const keys = await this._pairVerify(connection);
-        connection.setSessionKeys(keys);
+        const connection = await this.getDefaultVerifiedConnection();
 
-        // M1
-        const m1 = await this.pairingProtocol.buildAddPairingM1(identifier, ltpk, isAdmin);
-        const m2 = await connection.post('/pairings', m1, 'application/pairing+tlv8');
+        try {
+            // M1
+            const m1 = await this.pairingProtocol.buildAddPairingM1(identifier, ltpk, isAdmin);
+            const m2 = await connection.post('/pairings', m1, 'application/pairing+tlv8');
 
-        // M2
-        await this.pairingProtocol.parseAddPairingM2(m2.body);
-
-        connection.close();
+            // M2
+            await this.pairingProtocol.parseAddPairingM2(m2.body);
+        } finally {
+            this.closeMaybePersistentConnection(connection);
+        }
     }
 
     /**
@@ -356,20 +427,18 @@ export default class HttpClient extends EventEmitter {
      *                    is complete.
      */
     async listPairings(): Promise<TLV> {
-        const connection = new HttpConnection(this.address, this.port);
-        const keys = await this._pairVerify(connection);
-        connection.setSessionKeys(keys);
+        const connection = await this.getDefaultVerifiedConnection();
 
-        // M1
-        const m1 = await this.pairingProtocol.buildListPairingsM1();
-        const m2 = await connection.post('/pairings', m1, 'application/pairing+tlv8');
+        try {
+            // M1
+            const m1 = await this.pairingProtocol.buildListPairingsM1();
+            const m2 = await connection.post('/pairings', m1, 'application/pairing+tlv8');
 
-        // M2
-        const tlv = this.pairingProtocol.parseListPairingsM2(m2.body);
-
-        connection.close();
-
-        return tlv;
+            // M2
+            return this.pairingProtocol.parseListPairingsM2(m2.body);
+        } finally {
+            this.closeMaybePersistentConnection(connection);
+        }
     }
 
     /**
@@ -378,32 +447,33 @@ export default class HttpClient extends EventEmitter {
      * @returns {Promise} Promise which resolves to the JSON document.
      */
     async getAccessories(): Promise<Accessories> {
-        const connection = new HttpConnection(this.address, this.port);
-        const keys = await this._pairVerify(connection);
-        connection.setSessionKeys(keys);
+        const connection = await this.getDefaultVerifiedConnection();
 
-        const response = await connection.get('/accessories');
-        connection.close();
+        try {
+            const response = await connection.get('/accessories');
 
-        if (response.statusCode !== 200) {
-            throw new HomekitControllerError(
-                `Get failed with status ${response.statusCode}`,
-                response.statusCode,
-                response.body
-            );
-        }
+            if (response.statusCode !== 200) {
+                throw new HomekitControllerError(
+                    `Get failed with status ${response.statusCode}`,
+                    response.statusCode,
+                    response.body
+                );
+            }
 
-        const res: Accessories = JSON.parse(response.body.toString());
-        res.accessories.forEach((accessory) => {
-            accessory.services.forEach((service) => {
-                service.type = Service.ensureServiceUuid(service.type);
-                service.characteristics.forEach((characteristic) => {
-                    characteristic.type = Characteristic.ensureCharacteristicUuid(characteristic.type!);
+            const res: Accessories = JSON.parse(response.body.toString());
+            res.accessories.forEach((accessory) => {
+                accessory.services.forEach((service) => {
+                    service.type = Service.ensureServiceUuid(service.type);
+                    service.characteristics.forEach((characteristic) => {
+                        characteristic.type = Characteristic.ensureCharacteristicUuid(characteristic.type!);
+                    });
                 });
             });
-        });
 
-        return res;
+            return res;
+        } finally {
+            this.closeMaybePersistentConnection(connection);
+        }
     }
 
     /**
@@ -427,9 +497,7 @@ export default class HttpClient extends EventEmitter {
             options
         );
 
-        const connection = new HttpConnection(this.address, this.port);
-        const keys = await this._pairVerify(connection);
-        connection.setSessionKeys(keys);
+        const connection = await this.getDefaultVerifiedConnection();
 
         let path = `/characteristics?id=${characteristics.join(',')}`;
         if (options.meta) {
@@ -445,18 +513,21 @@ export default class HttpClient extends EventEmitter {
             path += '&ev=1';
         }
 
-        const response = await connection.get(path);
-        connection.close();
+        try {
+            const response = await connection.get(path);
 
-        if (response.statusCode !== 200 && response.statusCode !== 207) {
-            throw new HomekitControllerError(
-                `Get failed with status ${response.statusCode}`,
-                response.statusCode,
-                response.body
-            );
+            if (response.statusCode !== 200 && response.statusCode !== 207) {
+                throw new HomekitControllerError(
+                    `Get failed with status ${response.statusCode}`,
+                    response.statusCode,
+                    response.body
+                );
+            }
+
+            return JSON.parse(response.body.toString());
+        } finally {
+            this.closeMaybePersistentConnection(connection);
         }
-
-        return JSON.parse(response.body.toString());
     }
 
     /**
@@ -470,13 +541,10 @@ export default class HttpClient extends EventEmitter {
     async setCharacteristics(
         characteristics: Record<string, unknown>
     ): Promise<Record<string, unknown | SetCharacteristicsObject>> {
-        const connection = new HttpConnection(this.address, this.port);
+        const connection = await this.getDefaultVerifiedConnection();
         const data = {
             characteristics: <WriteCharacteristicsObject[]>[],
         };
-
-        const keys = await this._pairVerify(connection);
-        connection.setSessionKeys(keys);
 
         for (const cid in characteristics) {
             const parts = cid.split('.');
@@ -500,19 +568,22 @@ export default class HttpClient extends EventEmitter {
             data.characteristics.push(dataObject);
         }
 
-        const response = await connection.put('/characteristics', Buffer.from(JSON.stringify(data)));
-        connection.close();
+        try {
+            const response = await connection.put('/characteristics', Buffer.from(JSON.stringify(data)));
 
-        if (response.statusCode === 204) {
-            return data;
-        } else if (response.statusCode === 207) {
-            return JSON.parse(response.body.toString());
-        } else {
-            throw new HomekitControllerError(
-                `Set failed with status ${response.statusCode}`,
-                response.statusCode,
-                response.body
-            );
+            if (response.statusCode === 204) {
+                return data;
+            } else if (response.statusCode === 207) {
+                return JSON.parse(response.body.toString());
+            } else {
+                throw new HomekitControllerError(
+                    `Set failed with status ${response.statusCode}`,
+                    response.statusCode,
+                    response.body
+                );
+            }
+        } finally {
+            this.closeMaybePersistentConnection(connection);
         }
     }
 
@@ -687,7 +758,7 @@ export default class HttpClient extends EventEmitter {
      * @returns {Promise<Buffer>} Promise which resolves to a Buffer with the JPEG image content
      */
     async getImage(width: number, height: number, aid?: number): Promise<Buffer> {
-        const connection = new HttpConnection(this.address, this.port);
+        const connection = await this.getDefaultVerifiedConnection();
         const data = {
             aid,
             'resource-type': 'image',
@@ -695,20 +766,47 @@ export default class HttpClient extends EventEmitter {
             'image-height': height,
         };
 
-        const keys = await this._pairVerify(connection);
-        connection.setSessionKeys(keys);
+        try {
+            const response = await connection.post('/resource', Buffer.from(JSON.stringify(data)));
 
-        const response = await connection.post('/resource', Buffer.from(JSON.stringify(data)));
-        connection.close();
+            if (response.statusCode !== 200) {
+                throw new HomekitControllerError(
+                    `Image request errored with status ${response.statusCode}`,
+                    response.statusCode,
+                    response.body
+                );
+            }
 
-        if (response.statusCode !== 200) {
-            throw new HomekitControllerError(
-                `Image request errored with status ${response.statusCode}`,
-                response.statusCode,
-                response.body
-            );
+            return response.body;
+        } finally {
+            this.closeMaybePersistentConnection(connection);
         }
+    }
 
-        return response.body;
+    /**
+     * Close all potential open connections to the device
+     *
+     * @returns {Promise<void>} Promise when done
+     */
+    async close(): Promise<void> {
+        try {
+            this._defaultConnection?.close();
+        } catch {
+            // ignore
+        }
+        delete this._defaultConnection;
+        try {
+            this._pairingConnection?.close();
+        } catch {
+            // ignore
+        }
+        delete this._pairingConnection;
+        try {
+            this.subscriptionConnection?.close();
+        } catch {
+            // ignore
+        }
+        delete this.subscriptionConnection;
+        this.subscribedCharacteristics = [];
     }
 }

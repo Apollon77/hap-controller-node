@@ -15,6 +15,7 @@ import { Characteristic as NobleCharacteristic, Peripheral as NoblePeripheral } 
 import { DiscoveryPairingFeatureFlags } from '../ip/ip-discovery';
 import Debug from 'debug';
 import { Accessories } from '../../model/accessory';
+import { OpQueue } from '../../utils/queue';
 
 const debug = Debug('hap-controller:gatt-client');
 
@@ -44,9 +45,9 @@ export default class GattClient extends EventEmitter {
 
     private tid: number;
 
-    private queue: GattUtils.OpQueue;
+    private queue: OpQueue;
 
-    private pairingQueue: GattUtils.OpQueue;
+    private pairingQueue: OpQueue;
 
     private _pairingConnection?: GattConnection;
 
@@ -73,8 +74,8 @@ export default class GattClient extends EventEmitter {
         this.pairingProtocol = new PairingProtocol(pairingData);
         this.gattProtocol = new GattProtocol();
         this.tid = -1;
-        this.queue = new GattUtils.OpQueue();
-        this.pairingQueue = new GattUtils.OpQueue();
+        this.queue = new OpQueue();
+        this.pairingQueue = new OpQueue();
     }
 
     /**
@@ -1005,7 +1006,7 @@ export default class GattClient extends EventEmitter {
                 ).getPromise();
 
                 // Get the Service IIDs
-                let queue = new GattUtils.OpQueue();
+                let queue = new OpQueue();
                 let lastOp = Promise.resolve();
                 for (const service of services) {
                     if (service.uuid === pairingUuid || service.uuid === protocolInformationUuid) {
@@ -1046,7 +1047,7 @@ export default class GattClient extends EventEmitter {
 
                 await lastOp;
 
-                queue = new GattUtils.OpQueue();
+                queue = new OpQueue();
                 lastOp = Promise.resolve();
 
                 const characteristics: { characteristic: NobleCharacteristic; iid: number }[] = [];
@@ -1079,7 +1080,7 @@ export default class GattClient extends EventEmitter {
 
                 await lastOp;
 
-                queue = new GattUtils.OpQueue();
+                queue = new OpQueue();
                 lastOp = Promise.resolve();
 
                 for (const c of characteristics) {
@@ -1283,7 +1284,7 @@ export default class GattClient extends EventEmitter {
 
                 const entries: Characteristic.CharacteristicObject[] = [];
                 if (options.meta || options.perms || options.extra) {
-                    const queue = new GattUtils.OpQueue();
+                    const queue = new OpQueue();
                     let lastOp = Promise.resolve();
 
                     for (const c of cList) {
@@ -1463,7 +1464,7 @@ export default class GattClient extends EventEmitter {
                     await lastOp;
                 }
 
-                const queue = new GattUtils.OpQueue();
+                const queue = new OpQueue();
                 let lastOp = Promise.resolve();
                 const updatedEntries: Characteristic.CharacteristicObject[] = [];
 
@@ -1586,7 +1587,7 @@ export default class GattClient extends EventEmitter {
                     )
                 ).getPromise();
 
-                const queue = new GattUtils.OpQueue();
+                const queue = new OpQueue();
                 let lastOp = Promise.resolve();
 
                 for (const v of values) {
@@ -1680,7 +1681,7 @@ export default class GattClient extends EventEmitter {
                     )
                 ).getPromise();
 
-                const queue = new GattUtils.OpQueue();
+                const queue = new OpQueue();
                 let lastOp = Promise.resolve();
 
                 for (const c of newSubscriptions) {
@@ -1778,7 +1779,7 @@ export default class GattClient extends EventEmitter {
             )
         ).getPromise();
 
-        const queue = new GattUtils.OpQueue();
+        const queue = new OpQueue();
         let lastOp = Promise.resolve();
 
         for (const c of characteristics) {
@@ -1806,5 +1807,26 @@ export default class GattClient extends EventEmitter {
             });
             delete this.subscriptionConnection;
         }
+    }
+
+    /**
+     * Close all potential still open connections
+     *
+     * @returns {Promise<void>} Promise when done
+     */
+    async close(): Promise<void> {
+        try {
+            await this._pairingConnection?.disconnect();
+        } catch {
+            // ignore
+        }
+        delete this._pairingConnection;
+        try {
+            await this.subscriptionConnection?.disconnect();
+        } catch {
+            // ignore
+        }
+        delete this.subscriptionConnection;
+        this.subscribedCharacteristics = [];
     }
 }

@@ -3,11 +3,12 @@
  */
 
 import { EventEmitter } from 'events';
-import { OpQueue, Watcher } from './gatt-utils';
+import { Watcher } from './gatt-utils';
 import sodium from 'libsodium-wrappers';
 import { Characteristic, Peripheral } from '@abandonware/noble';
 import { SessionKeys } from '../../protocol/pairing-protocol';
 import Debug from 'debug';
+import { OpQueue } from '../../utils/queue';
 
 const debug = Debug('hap-controller:gatt-connection');
 
@@ -56,9 +57,22 @@ export default class GattConnection extends EventEmitter {
     }
 
     /**
+     * Get the State of the peripheral connection
+     * Deprecated, please change to "isConnected"
      *
+     * @returns {Boolean} Connection State
+     * @deprecated
      */
     isPeripheralConnected(): boolean {
+        return this.isConnected();
+    }
+
+    /**
+     * Get the State of the peripheral connection
+     *
+     * @returns {Boolean} Connection State
+     */
+    isConnected(): boolean {
         return this.peripheral.state === 'connected';
     }
 
