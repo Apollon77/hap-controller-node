@@ -264,8 +264,7 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
-
-### __WORK IN PROGRESS__
+### 0.7.0 (2022-01-21)
 * (Apollon77) Introduce `close` method to tear down all connections that are potentially open
 * (Apollon77) Use a persistent connection by default to prevent the need to verify the pairing for each call. Can be disabled using a new `options` parameter in constructor. You must call `close()` if you do not need the instance any longer
 * (Apollon77) Make sure calls on a http connection are queued to not overlap
