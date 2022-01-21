@@ -17,7 +17,9 @@ const characteristics = {
 discovery.on('serviceUp', async (service) => {
     console.log(`Found device: ${service.name}`);
 
-    const client = new HttpClient(service.id, service.address, service.port, pairingData);
+    const client = new HttpClient(service.id, service.address, service.port, pairingData, {
+        usePersistentConnections: true,
+    });
 
     try {
         await client.setCharacteristics(characteristics);

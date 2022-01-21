@@ -13,7 +13,9 @@ const pairingData = {
 discovery.on('serviceUp', async (service) => {
     console.log(`Found device: ${service.name}`);
 
-    const client = new HttpClient(service.id, service.address, service.port, pairingData);
+    const client = new HttpClient(service.id, service.address, service.port, pairingData, {
+        usePersistentConnections: true,
+    });
 
     try {
         const tlv = await client.listPairings();
