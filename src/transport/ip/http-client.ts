@@ -197,10 +197,10 @@ export default class HttpClient extends EventEmitter {
      * @param {HttpConnection} connection Connection which was returned by getDefaultVerifiedConnection()
      * @private
      */
-    private closeMaybePersistentConnection(connection: HttpConnection): void {
-        if (!this.usePersistentConnections || this._defaultConnection !== connection) {
+    private closeMaybePersistentConnection(connection: HttpConnection, forceClose = false): void {
+        if (!this.usePersistentConnections || this._defaultConnection !== connection || forceClose) {
             connection.close();
-            debug('Close singe use connection client');
+            debug('Close client connection');
         }
     }
 
@@ -393,7 +393,7 @@ export default class HttpClient extends EventEmitter {
             // M2
             await this.pairingProtocol.parseRemovePairingM2(m2.body);
         } finally {
-            this.closeMaybePersistentConnection(connection);
+            this.closeMaybePersistentConnection(connection, true);
         }
     }
 
