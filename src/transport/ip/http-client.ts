@@ -783,7 +783,7 @@ export default class HttpClient extends EventEmitter {
         }
     }
 
-    closePersistentConnection() {
+    closePersistentConnection(): void {
         try {
             this._defaultConnection?.close();
         } catch {
