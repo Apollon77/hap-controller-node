@@ -783,6 +783,14 @@ export default class HttpClient extends EventEmitter {
         }
     }
 
+    closePersistentConnection() {
+        try {
+            this._defaultConnection?.close();
+        } catch {
+            // ignore
+        }
+    }
+
     /**
      * Close all potential open connections to the device
      *
