@@ -783,6 +783,9 @@ export default class HttpClient extends EventEmitter {
         }
     }
 
+    /**
+     * Closes the current persistent connection, if connected
+     */
     closePersistentConnection(): void {
         try {
             this._defaultConnection?.close();
