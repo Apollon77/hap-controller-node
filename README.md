@@ -264,7 +264,7 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
-### __WORK IN PROGRESS__
+### 0.7.2 (2022-01-25)
 * (Apollon77) Add method "closePersistentConnection" to HTTPClient to allow a close of this connection (e.g. when commands get timeouts or such)
 
 ### 0.7.0 (2022-01-21)
