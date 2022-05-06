@@ -146,7 +146,12 @@ export default class HttpConnection extends EventEmitter {
      */
     get(path: string): Promise<HttpResponse> {
         debug(`${this.address}:${this.port} GET ${path}`);
-        const data = Buffer.from(`GET ${path} HTTP/1.1\r\n\r\n`);
+
+        const data = Buffer.concat([
+            Buffer.from(`GET ${path} HTTP/1.1\r\n`),
+            Buffer.from(`Host: ${this.address}:${this.port}\r\n`),
+            Buffer.from(`\r\n`),
+        ]);
         return this.request(data);
     }
 
@@ -163,12 +168,18 @@ export default class HttpConnection extends EventEmitter {
         if (typeof body === 'string') {
             body = Buffer.from(body);
         }
-        debug(`${this.address}:${this.port} POST ${path} ${body.toString('hex')}`);
+        debug(
+            `${this.address}:${this.port} POST ${path} ${body.toString('hex')} (${
+                body.length ? contentType : 'no content'
+            })`
+        );
 
         const data = Buffer.concat([
             Buffer.from(`POST ${path} HTTP/1.1\r\n`),
-            Buffer.from(`Content-Type: ${contentType}\r\n`),
-            Buffer.from(`Content-Length: ${body.length}\r\n\r\n`),
+            Buffer.from(`Host: ${this.address}:${this.port}\r\n`),
+            body.length ? Buffer.from(`Content-Type: ${contentType}\r\n`) : Buffer.from(''),
+            Buffer.from(`Content-Length: ${body.length}\r\n`),
+            Buffer.from(`\r\n`),
             body,
         ]);
         return this.request(data);
@@ -198,8 +209,10 @@ export default class HttpConnection extends EventEmitter {
 
         const data = Buffer.concat([
             Buffer.from(`PUT ${path} HTTP/1.1\r\n`),
+            Buffer.from(`Host: ${this.address}:${this.port}\r\n`),
             Buffer.from(`Content-Type: ${contentType}\r\n`),
-            Buffer.from(`Content-Length: ${body.length}\r\n\r\n`),
+            Buffer.from(`Content-Length: ${body.length}\r\n`),
+            Buffer.from(`\r\n`),
             body,
         ]);
         return this.request(data, readEvents);

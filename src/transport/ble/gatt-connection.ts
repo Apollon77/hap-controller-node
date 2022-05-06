@@ -73,7 +73,7 @@ export default class GattConnection extends EventEmitter {
      * @returns {Boolean} Connection State
      */
     isConnected(): boolean {
-        return this.peripheral.state === 'connected';
+        return this.peripheral?.state === 'connected';
     }
 
     /**
