@@ -112,10 +112,17 @@ interface EventCharacteristicsObject {
 interface HttpClientOptions {
     /**
      * Set to true to use persistent connections for normal device interactions
-     * Without persistent connections a new pairing verification is rerquired
+     * Without persistent connections a new pairing verification is required
      * before each call which delays the execution.
      */
     usePersistentConnections: boolean;
+
+    /**
+     * Set this to true to use the same persistent connection for subscriptions
+     * as also for normal device interactions. This basically means that only
+     * one connection to the device ist used
+     */
+    subscriptionsUseSameConnection: boolean;
 }
 
 export default class HttpClient extends EventEmitter {
@@ -132,6 +139,8 @@ export default class HttpClient extends EventEmitter {
     private _defaultConnection?: HttpConnection;
 
     private usePersistentConnections = true;
+
+    private subscriptionsUseSameConnection = false;
 
     private subscriptionConnection?: HttpConnection;
 
@@ -162,6 +171,7 @@ export default class HttpClient extends EventEmitter {
         this.pairingProtocol = new PairingProtocol(pairingData);
         this.pairingQueue = new OpQueue();
         this.usePersistentConnections = options?.usePersistentConnections || false;
+        this.subscriptionsUseSameConnection = options?.subscriptionsUseSameConnection || false;
     }
 
     /**
@@ -195,6 +205,7 @@ export default class HttpClient extends EventEmitter {
      * Checks if a maybe persistent connection should be closed
      *
      * @param {HttpConnection} connection Connection which was returned by getDefaultVerifiedConnection()
+     * @param {boolean} forceClose - Force close the connection
      * @private
      */
     private closeMaybePersistentConnection(connection: HttpConnection, forceClose = false): void {
@@ -597,13 +608,18 @@ export default class HttpClient extends EventEmitter {
      * @returns {Promise} Promise
      */
     async subscribeCharacteristics(characteristics: string[]): Promise<void> {
-        const connection = this.subscriptionConnection || new HttpConnection(this.address, this.port);
+        let connection: HttpConnection;
+        if (this.subscriptionsUseSameConnection) {
+            connection = await this.getDefaultVerifiedConnection();
+        } else {
+            connection = this.subscriptionConnection || new HttpConnection(this.address, this.port);
+        }
 
         const data = {
             characteristics: <EventCharacteristicsObject[]>[],
         };
 
-        if (!this.subscriptionConnection) {
+        if (!this.subscriptionConnection && !this.subscriptionsUseSameConnection) {
             const keys = await this._pairVerify(connection);
             connection.setSessionKeys(keys);
         }
@@ -635,7 +651,8 @@ export default class HttpClient extends EventEmitter {
                     this.emit('event', JSON.parse(ev));
                 });
 
-                connection.on('disconnect', () => {
+                connection.once('disconnect', () => {
+                    connection.removeAllListeners('event');
                     delete this.subscriptionConnection;
                     if (this.subscribedCharacteristics.length) {
                         /**
@@ -662,7 +679,10 @@ export default class HttpClient extends EventEmitter {
 
             if (response.statusCode !== 204 && response.statusCode !== 207) {
                 if (!this.subscribedCharacteristics.length) {
-                    connection.close();
+                    if (!this.subscriptionsUseSameConnection) {
+                        connection.close();
+                    }
+                    connection.removeAllListeners('event');
                     delete this.subscriptionConnection;
                 }
                 throw new HomekitControllerError(
@@ -733,7 +753,10 @@ export default class HttpClient extends EventEmitter {
             });
 
             if (!this.subscribedCharacteristics.length) {
-                this.subscriptionConnection.close();
+                if (!this.subscriptionsUseSameConnection) {
+                    this.subscriptionConnection.close();
+                }
+                this.subscriptionConnection?.removeAllListeners('event');
                 delete this.subscriptionConnection;
             }
         }
@@ -812,10 +835,12 @@ export default class HttpClient extends EventEmitter {
             // ignore
         }
         delete this._pairingConnection;
-        try {
-            this.subscriptionConnection?.close();
-        } catch {
-            // ignore
+        if (!this.subscriptionsUseSameConnection) {
+            try {
+                this.subscriptionConnection?.close();
+            } catch {
+                // ignore
+            }
         }
         delete this.subscriptionConnection;
         this.subscribedCharacteristics = [];

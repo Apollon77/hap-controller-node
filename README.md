@@ -265,6 +265,9 @@ For Issues please consider to directly provide debug loggins (see above).
 
 ## Changelog
 
+### __WORK IN PROGRESS__
+* (Apollon77) Add experimental flag options.subscriptionsUseSameConnection for HTTP Client to use the same connection for subscriptions and for all other calls to only have one connection from controller to the device.
+
 ### 0.7.4 (2022-05-06)
 * (Apollon77) Add Host header to all HTTP calls because some devices seem to require it
 * (Apollon77) Check that client was initialized before accessing the connected state
