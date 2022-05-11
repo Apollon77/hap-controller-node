@@ -182,7 +182,7 @@ export default class HttpClient extends EventEmitter {
      */
     private async getDefaultVerifiedConnection(): Promise<HttpConnection> {
         if (this._defaultConnection) {
-            debug('Reuse persistent connection client');
+            debug(`${this.address}:${this.port} Reuse persistent connection client`);
             return this._defaultConnection;
         }
         const connection = new HttpConnection(this.address, this.port);
@@ -192,11 +192,11 @@ export default class HttpClient extends EventEmitter {
         if (this.usePersistentConnections) {
             this._defaultConnection = connection;
             this._defaultConnection.on('disconnect', () => {
-                debug('Persistent connection client got disconnected');
+                debug(`${this.address}:${this.port} Persistent connection client got disconnected`);
             });
-            debug('New persistent connection client initialized');
+            debug(`${this.address}:${this.port} New persistent connection client initialized`);
         } else {
-            debug('New new connection client initialized');
+            debug(`${this.address}:${this.port} New new connection client initialized`);
         }
         return connection;
     }
@@ -211,7 +211,7 @@ export default class HttpClient extends EventEmitter {
     private closeMaybePersistentConnection(connection: HttpConnection, forceClose = false): void {
         if (!this.usePersistentConnections || this._defaultConnection !== connection || forceClose) {
             connection.close();
-            debug('Close client connection');
+            debug(`${this.address}:${this.port} Close client connection`);
         }
     }
 
@@ -363,7 +363,7 @@ export default class HttpClient extends EventEmitter {
      */
     private async _pairVerify(connection: HttpConnection): Promise<SessionKeys> {
         return this._queuePairingOperation(async () => {
-            debug('Start Pair-Verify process ...');
+            debug(`${this.address}:${this.port} Start Pair-Verify process ...`);
             // M1
             const m1 = await this.pairingProtocol.buildPairVerifyM1();
             const m2 = await connection.post('/pair-verify', m1, 'application/pairing+tlv8');
@@ -378,7 +378,7 @@ export default class HttpClient extends EventEmitter {
             // M4
             await this.pairingProtocol.parsePairVerifyM4(m4.body);
 
-            debug('Finished Pair-Verify process ...');
+            debug(`${this.address}:${this.port} Finished Pair-Verify process ...`);
             return this.pairingProtocol.getSessionKeys();
         });
     }
