@@ -237,6 +237,13 @@ Examples of all of the APIs can be found in the [GitHub repo](https://github.com
 
 ## Troubleshooting
 
+### Known incompatible devices
+If you have issues pairing the device with this adapter please try to pair it with the normal iOS Apple Home App. If this do not work then something is weird with the device and then also this adapter can not help. Pot try a reset, but else there is not chance.
+
+This is currently that way for some Tado Door Locks as example. They need to be paired using the Tado App which is somehow registering the device into Apple Home, but not via an official pair process.
+
+Additional also Nuki 3 Locks (BLE) are not possible to pair because they use Hardware Authentication components that are not publicly documented by Apple.
+
 ### For BLE issues
 * If you have issues that the BLE connection do not work our you get Errors when the adapter tries to initialize the BluetoothLE connection, please first check and follow https://github.com/noble/noble#running-on-linux
 * Does the device have a Pairing Mode or such that needs to be activated first? But also read the manual careful, maybe the Pairing mode is for some other legacy protocol or bridge but not Apple Home.
