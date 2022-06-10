@@ -117,8 +117,8 @@ const DiscoveryPairingStatusFlags = {
  * See Table 5-4
  */
 const DiscoveryPairingFeatureFlags = {
-    SupportsAppleAuthenticationCoprocessor: 0x01,
-    SupportsSoftwareAuthentication: 0x02,
+    SupportsAppleAuthenticationCoprocessor: 0x01, // MFi HW
+    SupportsSoftwareAuthentication: 0x02, // MFi SW
 };
 
 export { DiscoveryPairingStatusFlags, DiscoveryPairingFeatureFlags };

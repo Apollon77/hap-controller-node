@@ -73,7 +73,7 @@ export default class GattClient extends EventEmitter {
         this.peripheral = peripheral;
         this.pairingProtocol = new PairingProtocol(pairingData);
         this.gattProtocol = new GattProtocol();
-        this.tid = -1;
+        this.tid = Math.floor(Math.random() * 254);
         this.queue = new OpQueue();
         this.pairingQueue = new OpQueue();
     }
