@@ -271,6 +271,10 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
+
+### __WORK IN PROGRESS__
+* (Apollon77) Make HTTP Client options optional
+
 ### 0.8.0 (2022-06-10)
 * (Apollon77) Initialize transaction ID randomly for BLE
 * (Apollon77) Add experimental flag options.subscriptionsUseSameConnection for HTTP Client to use the same connection for subscriptions and for all other calls to only have one connection from controller to the device.

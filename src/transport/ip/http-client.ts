@@ -115,14 +115,14 @@ interface HttpClientOptions {
      * Without persistent connections a new pairing verification is required
      * before each call which delays the execution.
      */
-    usePersistentConnections: boolean;
+    usePersistentConnections?: boolean;
 
     /**
      * Set this to true to use the same persistent connection for subscriptions
      * as also for normal device interactions. This basically means that only
      * one connection to the device ist used
      */
-    subscriptionsUseSameConnection: boolean;
+    subscriptionsUseSameConnection?: boolean;
 }
 
 export default class HttpClient extends EventEmitter {
