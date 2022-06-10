@@ -271,8 +271,7 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
-
-### __WORK IN PROGRESS__
+### 0.8.1 (2022-06-10)
 * (Apollon77) Make HTTP Client options optional
 
 ### 0.8.0 (2022-06-10)
