@@ -35,7 +35,7 @@
     "http-parser-js": "^0.5.6",
     "libsodium-wrappers": "^0.7.10",
     "node-hkdf-sync": "^1.0.0",
-    "uuid": "^8.3.2"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@alcalzone/release-script": "^3.5.9",
