@@ -129,7 +129,7 @@ module.exports = {
     '@typescript-eslint/no-duplicate-imports': 'error',
     'no-eval': 'error',
     '@typescript-eslint/no-explicit-any': [
-      'error',
+      'off',
       {
         'ignoreRestArgs': true
       }

@@ -3,10 +3,17 @@
  */
 
 import { EventEmitter } from 'events';
-import noble from '@abandonware/noble';
+import { Peripheral } from '@abandonware/noble';
 import GattClient from './gatt-client';
 import Debug from 'debug';
 
+let noble: typeof import('@abandonware/noble');
+noble = require('@abandonware/noble');
+if (typeof noble.on !== 'function') {
+    // The following commit broke the default exported instance of noble:
+    // https://github.com/abandonware/noble/commit/b67eea246f719947fc45b1b52b856e61637a8a8e
+    noble = (noble as any)({ extended: false });
+}
 const debug = Debug('hap-controller:gatt-client');
 
 /**
@@ -98,7 +105,7 @@ export interface HapServiceBle {
     /**
      * Peripheral object used for all communication to this device
      */
-    peripheral: noble.Peripheral;
+    peripheral: Peripheral;
     /**
      * c#: the configuration number, same value as CN for convenient reasons with IP
      */
@@ -132,7 +139,7 @@ export default class BLEDiscovery extends EventEmitter {
 
     private handleStateChange: (state: string) => void;
 
-    private handleDiscover: (peripheral: noble.Peripheral) => void;
+    private handleDiscover: (peripheral: Peripheral) => void;
 
     private handleScanStart: () => void;
 
@@ -228,7 +235,7 @@ export default class BLEDiscovery extends EventEmitter {
         }
     }
 
-    private _handleDiscover(peripheral: noble.Peripheral): void {
+    private _handleDiscover(peripheral: Peripheral): void {
         const advertisement = peripheral.advertisement;
         const manufacturerData = advertisement.manufacturerData;
 
