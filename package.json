@@ -28,7 +28,7 @@
   },
   "homepage": "https://github.com/Apollon77/hap-controller-node#readme",
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-18",
+    "@abandonware/noble": "1.9.2-15",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",
     "fast-srp-hap": "^2.0.4",
