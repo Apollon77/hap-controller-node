@@ -273,6 +273,10 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
+
+### __WORK IN PROGRESS__
+* (Apollon77) Upgrade noble
+
 ### 0.8.3 (2022-12-31)
 * (Apollon77) Downgrade noble again
 
