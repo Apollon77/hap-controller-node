@@ -1,3 +1,5 @@
+import JSONBig from 'json-bigint';
+
 class HomekitControllerError extends Error {
     public statusCode: number | undefined;
 
@@ -26,7 +28,7 @@ class HomekitControllerError extends Error {
     setBody(body: Record<string, unknown> | Buffer): void {
         if (Buffer.isBuffer(body)) {
             try {
-                this.body = JSON.parse(body.toString('utf-8'));
+                this.body = JSONBig.parse(body.toString('utf-8'));
             } catch (err) {
                 this.body = {
                     raw: body,

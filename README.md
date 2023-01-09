@@ -273,6 +273,9 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
+### __WORK IN PROGRESS__
+* (Apollon77) BREAKING: Returned data objects partially contain BigInt values (represented by bignumber.js instances) for iid/aid fields!
+
 ### 0.8.4 (2023-01-05)
 * (Apollon77) Upgrade noble
 

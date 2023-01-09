@@ -12,6 +12,7 @@ import * as Service from '../../model/service';
 import { Accessories } from '../../model/accessory';
 import HomekitControllerError from '../../model/error';
 import { OpQueue } from '../../utils/queue';
+import JSONBig from 'json-bigint';
 
 const debug = Debug('hap-controller:http-client');
 
@@ -471,7 +472,7 @@ export default class HttpClient extends EventEmitter {
                 );
             }
 
-            const res: Accessories = JSON.parse(response.body.toString());
+            const res: Accessories = JSONBig.parse(response.body.toString());
             res.accessories.forEach((accessory) => {
                 accessory.services.forEach((service) => {
                     service.type = Service.ensureServiceUuid(service.type);
@@ -535,7 +536,7 @@ export default class HttpClient extends EventEmitter {
                 );
             }
 
-            return JSON.parse(response.body.toString());
+            return JSONBig.parse(response.body.toString());
         } finally {
             this.closeMaybePersistentConnection(connection);
         }
@@ -580,12 +581,12 @@ export default class HttpClient extends EventEmitter {
         }
 
         try {
-            const response = await connection.put('/characteristics', Buffer.from(JSON.stringify(data)));
+            const response = await connection.put('/characteristics', Buffer.from(JSONBig.stringify(data)));
 
             if (response.statusCode === 204) {
                 return data;
             } else if (response.statusCode === 207) {
-                return JSON.parse(response.body.toString());
+                return JSONBig.parse(response.body.toString());
             } else {
                 throw new HomekitControllerError(
                     `Set failed with status ${response.statusCode}`,
@@ -648,7 +649,7 @@ export default class HttpClient extends EventEmitter {
                      * @event HttpClient#event
                      * @type {Object} Event TODO
                      */
-                    this.emit('event', JSON.parse(ev));
+                    this.emit('event', JSONBig.parse(ev));
                 });
 
                 connection.once('disconnect', () => {
@@ -672,7 +673,7 @@ export default class HttpClient extends EventEmitter {
 
             const response = await connection.put(
                 '/characteristics',
-                Buffer.from(JSON.stringify(data)),
+                Buffer.from(JSONBig.stringify(data)),
                 'application/hap+json',
                 true
             );
@@ -734,7 +735,7 @@ export default class HttpClient extends EventEmitter {
         if (data.characteristics.length) {
             const response = await this.subscriptionConnection.put(
                 '/characteristics',
-                Buffer.from(JSON.stringify(data))
+                Buffer.from(JSONBig.stringify(data))
             );
 
             if (response.statusCode !== 204 && response.statusCode !== 207) {
@@ -790,7 +791,7 @@ export default class HttpClient extends EventEmitter {
         };
 
         try {
-            const response = await connection.post('/resource', Buffer.from(JSON.stringify(data)));
+            const response = await connection.post('/resource', Buffer.from(JSONBig.stringify(data)));
 
             if (response.statusCode !== 200) {
                 throw new HomekitControllerError(
