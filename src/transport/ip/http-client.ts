@@ -608,7 +608,7 @@ export default class HttpClient extends EventEmitter {
      *                                       in form ["aid.iid", ...]
      * @returns {Promise} Promise
      */
-    async subscribeCharacteristics(characteristics: string[]): Promise<void> {
+    async subscribeCharacteristics(characteristics: string[]): Promise<Record<string, unknown> | null> {
         let connection: HttpConnection;
         if (this.subscriptionsUseSameConnection) {
             connection = await this.getDefaultVerifiedConnection();
@@ -693,7 +693,20 @@ export default class HttpClient extends EventEmitter {
                 );
             }
             this.subscribedCharacteristics = this.subscribedCharacteristics.concat(newSubscriptions);
+
+            let body = {};
+            try {
+                if (response.body) {
+                    body = JSONBig.parse(response.body.toString());
+                }
+            } catch (err) {
+                // ignore
+            }
+
+            return body;
         }
+
+        return null;
     }
 
     /**
@@ -704,9 +717,9 @@ export default class HttpClient extends EventEmitter {
      *                   if ommited all currently subscribed characteristics will be unsubscribed
      * @returns {Promise} Promise which resolves when the procedure is done.
      */
-    async unsubscribeCharacteristics(characteristics?: string[]): Promise<void> {
+    async unsubscribeCharacteristics(characteristics?: string[]): Promise<Record<any, unknown> | null> {
         if (!this.subscriptionConnection || !this.subscribedCharacteristics.length) {
-            return;
+            return null;
         }
 
         if (!characteristics) {
@@ -760,7 +773,19 @@ export default class HttpClient extends EventEmitter {
                 this.subscriptionConnection?.removeAllListeners('event');
                 delete this.subscriptionConnection;
             }
+
+            let body = {};
+            try {
+                if (response.body) {
+                    body = JSONBig.parse(response.body.toString());
+                }
+            } catch (err) {
+                // ignore
+            }
+
+            return body;
         }
+        return null;
     }
 
     /**
