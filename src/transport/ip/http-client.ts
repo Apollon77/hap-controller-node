@@ -13,6 +13,7 @@ import { Accessories } from '../../model/accessory';
 import HomekitControllerError from '../../model/error';
 import { OpQueue } from '../../utils/queue';
 import JSONBig from 'json-bigint';
+import BigNumber from 'bignumber.js';
 
 const debug = Debug('hap-controller:http-client');
 
@@ -33,13 +34,13 @@ export interface GetCharacteristicsOptions {
     perms?: boolean;
 
     /**
-     * Boolean value that determines whether or not the response should include the type of characteristic.
+     * Boolean value that determines whether the response should include the type of characteristic.
      * Default: false
      */
     type?: boolean;
 
     /**
-     * Boolean value that determines whether or not the ”ev” property of the characteristic should be
+     * Boolean value that determines whether the ”ev” property of the characteristic should be
      * included in the response
      * Default: false
      */
@@ -50,12 +51,12 @@ export interface SetCharacteristicsObject {
     /**
      * The instance ID of the accessory that contains the characteristic to be written.
      */
-    aid?: number;
+    aid?: number | BigNumber;
 
     /**
      * The instance ID of the characteristic to be written.
      */
-    iid?: number;
+    iid?: number | BigNumber;
 
     /**
      * Property that contains the value to be written to the characteristic. Required
@@ -85,24 +86,24 @@ interface WriteCharacteristicsObject extends SetCharacteristicsObject {
     /**
      * The instance ID of the accessory that contains the characteristic to be written.
      */
-    aid?: number;
+    aid?: number | BigNumber;
 
     /**
      * The instance ID of the characteristic to be written.
      */
-    iid?: number;
+    iid?: number | BigNumber;
 }
 
 interface EventCharacteristicsObject {
     /**
      * The instance ID of the accessory that contains the characteristic to be written.
      */
-    aid: number;
+    aid: number | BigNumber;
 
     /**
      * The instance ID of the characteristic to be written.
      */
-    iid: number;
+    iid: number | BigNumber;
 
     /**
      * Property that indicates the state of event notifications for the characteristic.
@@ -562,8 +563,8 @@ export default class HttpClient extends EventEmitter {
             const parts = cid.split('.');
 
             let dataObject: WriteCharacteristicsObject = {
-                aid: parseInt(parts[0], 10),
-                iid: parseInt(parts[1], 10),
+                aid: BigNumber(parts[0].trim()),
+                iid: BigNumber(parts[1].trim()),
                 value: null,
             };
             if (
@@ -634,8 +635,8 @@ export default class HttpClient extends EventEmitter {
             newSubscriptions.push(cid);
             const parts = cid.split('.');
             data.characteristics.push({
-                aid: parseInt(parts[0].trim(), 10),
-                iid: parseInt(parts[1].trim(), 10),
+                aid: BigNumber(parts[0].trim()),
+                iid: BigNumber(parts[1].trim()),
                 ev: true,
             });
         }
@@ -727,7 +728,7 @@ export default class HttpClient extends EventEmitter {
         }
 
         const data = {
-            characteristics: <{ aid: number; iid: number; ev: boolean }[]>[],
+            characteristics: <{ aid: number | BigNumber; iid: number | BigNumber; ev: boolean }[]>[],
         };
 
         const unsubscribedCharacteristics: string[] = [];
@@ -739,8 +740,8 @@ export default class HttpClient extends EventEmitter {
             unsubscribedCharacteristics.push(cid);
             const parts = cid.split('.');
             data.characteristics.push({
-                aid: parseInt(parts[0], 10),
-                iid: parseInt(parts[1], 10),
+                aid: BigNumber(parts[0].trim()),
+                iid: BigNumber(parts[1].trim()),
                 ev: false,
             });
         }
@@ -802,11 +803,11 @@ export default class HttpClient extends EventEmitter {
      *
      * @param {number} width width of the returned image
      * @param {number} height height of the returned image
-     * @param {number} [aid] accessory ID (optional)
+     * @param {number | BigNumber} [aid] accessory ID (optional)
      *
      * @returns {Promise<Buffer>} Promise which resolves to a Buffer with the JPEG image content
      */
-    async getImage(width: number, height: number, aid?: number): Promise<Buffer> {
+    async getImage(width: number, height: number, aid?: number | BigNumber): Promise<Buffer> {
         const connection = await this.getDefaultVerifiedConnection();
         const data = {
             aid,
