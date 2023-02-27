@@ -273,6 +273,10 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
+
+### __WORK IN PROGRESS__
+* (Apollon77) Update Noble to fix CPU/Memory issue
+
 ### 0.9.2 (2023-01-10)
 * (Apollon77) Adjust some more places to finalize BigInt support
 
