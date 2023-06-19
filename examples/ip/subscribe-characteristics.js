@@ -38,9 +38,15 @@ discovery.on('serviceUp', async (service) => {
 
     client.on('event-disconnect', (formerSubscribes) => {
         console.log(`Disconnected: ${JSON.stringify(formerSubscribes, null, 2)}`);
-
         // resubscribe if wanted:
-        // await client.subscribeCharacteristics(formerSubscribes);
+        try { 
+            // a disconnect can happen if the device was disconnected from the network
+            // so you have to catch any network errors here
+            await client.subscribeCharacteristics(formerSubscribes);
+        } catch (e) {
+            console.error("error while resubscribing",e);
+            // if the discovery will detect the device again it will fire a new serviceUp event
+        }
     });
 
     try {
