@@ -164,7 +164,7 @@ export default class HttpClient extends EventEmitter {
         address: string,
         port: number,
         pairingData?: PairingData,
-        options?: HttpClientOptions
+        options?: HttpClientOptions,
     ) {
         super();
         this.deviceId = deviceId;
@@ -253,7 +253,7 @@ export default class HttpClient extends EventEmitter {
             throw new HomekitControllerError(
                 `Identify failed with status ${response.statusCode}`,
                 response.statusCode,
-                response.body
+                response.body,
             );
         }
     }
@@ -469,7 +469,7 @@ export default class HttpClient extends EventEmitter {
                 throw new HomekitControllerError(
                     `Get failed with status ${response.statusCode}`,
                     response.statusCode,
-                    response.body
+                    response.body,
                 );
             }
 
@@ -498,7 +498,7 @@ export default class HttpClient extends EventEmitter {
      */
     async getCharacteristics(
         characteristics: string[],
-        options: GetCharacteristicsOptions = {}
+        options: GetCharacteristicsOptions = {},
     ): Promise<{ characteristics: Characteristic.CharacteristicObject[] }> {
         options = Object.assign(
             {
@@ -507,7 +507,7 @@ export default class HttpClient extends EventEmitter {
                 type: false,
                 ev: false,
             },
-            options
+            options,
         );
 
         const connection = await this.getDefaultVerifiedConnection();
@@ -533,7 +533,7 @@ export default class HttpClient extends EventEmitter {
                 throw new HomekitControllerError(
                     `Get failed with status ${response.statusCode}`,
                     response.statusCode,
-                    response.body
+                    response.body,
                 );
             }
 
@@ -552,7 +552,7 @@ export default class HttpClient extends EventEmitter {
      * @returns {Promise} Promise which resolves to the JSON document.
      */
     async setCharacteristics(
-        characteristics: Record<string, unknown>
+        characteristics: Record<string, unknown>,
     ): Promise<Record<string, unknown | SetCharacteristicsObject>> {
         const connection = await this.getDefaultVerifiedConnection();
         const data = {
@@ -592,7 +592,7 @@ export default class HttpClient extends EventEmitter {
                 throw new HomekitControllerError(
                     `Set failed with status ${response.statusCode}`,
                     response.statusCode,
-                    response.body
+                    response.body,
                 );
             }
         } finally {
@@ -676,7 +676,7 @@ export default class HttpClient extends EventEmitter {
                 '/characteristics',
                 Buffer.from(JSONBig.stringify(data)),
                 'application/hap+json',
-                true
+                true,
             );
 
             if (response.statusCode !== 204 && response.statusCode !== 207) {
@@ -690,7 +690,7 @@ export default class HttpClient extends EventEmitter {
                 throw new HomekitControllerError(
                     `Subscribe failed with status ${response.statusCode}`,
                     response.statusCode,
-                    response.body
+                    response.body,
                 );
             }
             this.subscribedCharacteristics = this.subscribedCharacteristics.concat(newSubscriptions);
@@ -749,14 +749,14 @@ export default class HttpClient extends EventEmitter {
         if (data.characteristics.length) {
             const response = await this.subscriptionConnection.put(
                 '/characteristics',
-                Buffer.from(JSONBig.stringify(data))
+                Buffer.from(JSONBig.stringify(data)),
             );
 
             if (response.statusCode !== 204 && response.statusCode !== 207) {
                 throw new HomekitControllerError(
                     `Unsubscribe failed with status ${response.statusCode}`,
                     response.statusCode,
-                    response.body
+                    response.body,
                 );
             }
 
@@ -823,7 +823,7 @@ export default class HttpClient extends EventEmitter {
                 throw new HomekitControllerError(
                     `Image request errored with status ${response.statusCode}`,
                     response.statusCode,
-                    response.body
+                    response.body,
                 );
             }
 

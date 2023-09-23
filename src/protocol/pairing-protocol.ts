@@ -328,7 +328,7 @@ export default class PairingProtocol {
             m2Tlv.get(Types.kTLVType_Salt)!,
             Buffer.from('Pair-Setup'),
             Buffer.from(pin),
-            key
+            key,
         );
         this.srpClient.setB(m2Tlv.get(Types.kTLVType_PublicKey)!);
 
@@ -423,8 +423,8 @@ export default class PairingProtocol {
                 null,
                 null,
                 Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PS-Msg05')]),
-                this.pairSetup.sessionKey!
-            )
+                this.pairSetup.sessionKey!,
+            ),
         );
 
         const data = new Map();
@@ -484,8 +484,8 @@ export default class PairingProtocol {
                     tlv.get(Types.kTLVType_EncryptedData)!,
                     null,
                     Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PS-Msg06')]),
-                    this.pairSetup.sessionKey!
-                )
+                    this.pairSetup.sessionKey!,
+                ),
             );
         } catch (_e) {
             throw new Error('M6: Decryption of sub-TLV failed');
@@ -588,7 +588,7 @@ export default class PairingProtocol {
         this.pairVerify.accessoryPublicKey = tlv.get(Types.kTLVType_PublicKey)!;
 
         this.pairVerify.sharedSecret = Buffer.from(
-            sodium.crypto_scalarmult(this.pairVerify.privateKey!, this.pairVerify.accessoryPublicKey)
+            sodium.crypto_scalarmult(this.pairVerify.privateKey!, this.pairVerify.accessoryPublicKey),
         );
 
         const hkdf1 = new HKDF('sha512', 'Pair-Verify-Encrypt-Salt', this.pairVerify.sharedSecret);
@@ -605,8 +605,8 @@ export default class PairingProtocol {
                     tlv.get(Types.kTLVType_EncryptedData)!,
                     null,
                     Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PV-Msg02')]),
-                    this.pairVerify.sessionKey!
-                )
+                    this.pairVerify.sessionKey!,
+                ),
             );
         } catch (_e) {
             throw new Error('M2: Decryption of sub-TLV failed');
@@ -688,8 +688,8 @@ export default class PairingProtocol {
                 null,
                 null,
                 Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PV-Msg03')]),
-                this.pairVerify.sessionKey!
-            )
+                this.pairVerify.sessionKey!,
+            ),
         );
 
         const data = new Map();
@@ -915,7 +915,7 @@ export default class PairingProtocol {
         const hkdf = new HKDF(
             'sha512',
             Buffer.concat([this.pairVerify.publicKey, this.pairVerify.sessionID!]),
-            this.pairVerify.sharedSecret!
+            this.pairVerify.sharedSecret!,
         );
 
         const requestKey = hkdf.derive('Pair-Resume-Request-Info', 32);
@@ -925,8 +925,8 @@ export default class PairingProtocol {
                 null,
                 null,
                 Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PR-Msg01')]),
-                requestKey
-            )
+                requestKey,
+            ),
         );
 
         const data = new Map();
@@ -990,7 +990,7 @@ export default class PairingProtocol {
         const hkdf1 = new HKDF(
             'sha512',
             Buffer.concat([this.pairVerify.publicKey, this.pairVerify.sessionID]),
-            this.pairVerify.sharedSecret!
+            this.pairVerify.sharedSecret!,
         );
         const responseKey = hkdf1.derive('Pair-Resume-Response-Info', 32);
 
@@ -1000,7 +1000,7 @@ export default class PairingProtocol {
                 tlv.get(Types.kTLVType_EncryptedData)!,
                 null,
                 Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('PR-Msg02')]),
-                responseKey
+                responseKey,
             );
         } catch (_e) {
             throw new Error('M2: Decryption of data failed');
@@ -1009,7 +1009,7 @@ export default class PairingProtocol {
         const hkdf2 = new HKDF(
             'sha512',
             Buffer.concat([this.pairVerify.publicKey!, this.pairVerify.sessionID!]),
-            this.pairVerify.sharedSecret!
+            this.pairVerify.sharedSecret!,
         );
         this.pairVerify.sharedSecret = hkdf2.derive('Pair-Resume-Shared-Secret-Info', 32);
 

@@ -138,10 +138,10 @@ export default class GattClient extends EventEmitter {
      */
     identify(): Promise<void> {
         const serviceUuid = GattUtils.uuidToNobleUuid(
-            Service.uuidFromService('public.hap.service.accessory-information')
+            Service.uuidFromService('public.hap.service.accessory-information'),
         );
         const characteristicUuid = GattUtils.uuidToNobleUuid(
-            Characteristic.uuidFromCharacteristic('public.hap.characteristic.identify')
+            Characteristic.uuidFromCharacteristic('public.hap.characteristic.identify'),
         );
 
         return this._queueOperation(async () => {
@@ -152,7 +152,7 @@ export default class GattClient extends EventEmitter {
 
                 const { characteristics } = await new GattUtils.Watcher(
                     this.peripheral,
-                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
+                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid]),
                 ).getPromise();
 
                 const characteristic = characteristics.find((c) => {
@@ -201,12 +201,12 @@ export default class GattClient extends EventEmitter {
         const characteristicInstanceIdUuid = GattUtils.uuidToNobleUuid(GattConstants.CharacteristicInstanceIdUuid);
 
         const characteristicInstanceIdShortUuid = GattUtils.uuidToNobleUuid(
-            GattConstants.CharacteristicInstanceIdShortUuid
+            GattConstants.CharacteristicInstanceIdShortUuid,
         );
 
         const descriptors = await new GattUtils.Watcher(
             this.peripheral,
-            characteristic.discoverDescriptorsAsync()
+            characteristic.discoverDescriptorsAsync(),
         ).getPromise();
 
         const descriptor = descriptors.find((d) => {
@@ -225,7 +225,7 @@ export default class GattClient extends EventEmitter {
     async getPairingMethod(): Promise<number> {
         const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const featureCharacteristicUuid = GattUtils.uuidToNobleUuid(
-            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.features')
+            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.features'),
         );
 
         return this._queueOperation(async () => {
@@ -238,8 +238,8 @@ export default class GattClient extends EventEmitter {
                     this.peripheral,
                     this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
                         [serviceUuid],
-                        [featureCharacteristicUuid]
-                    )
+                        [featureCharacteristicUuid],
+                    ),
                 ).getPromise();
 
                 const characteristic = characteristics.find((c) => {
@@ -297,11 +297,11 @@ export default class GattClient extends EventEmitter {
      */
     async startPairing(
         pairMethod = PairMethods.PairSetupWithAuth,
-        pairFlags = 0
+        pairFlags = 0,
     ): Promise<{ tlv: TLV; iid: number; characteristic: NobleCharacteristic }> {
         const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const characteristicUuid = GattUtils.uuidToNobleUuid(
-            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-setup')
+            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-setup'),
         );
 
         return this._queueOperation(async () => {
@@ -311,7 +311,7 @@ export default class GattClient extends EventEmitter {
 
             const { characteristics } = await new GattUtils.Watcher(
                 this.peripheral,
-                this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
+                this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid]),
             ).getPromise();
 
             const characteristic = characteristics.find((c) => {
@@ -377,7 +377,7 @@ export default class GattClient extends EventEmitter {
      */
     async finishPairing(
         pairingData: { tlv: TLV; iid: number; characteristic: NobleCharacteristic },
-        pin: string
+        pin: string,
     ): Promise<void> {
         const { tlv, iid, characteristic } = pairingData;
 
@@ -399,7 +399,7 @@ export default class GattClient extends EventEmitter {
                 const m3Pdu = this.gattProtocol.buildCharacteristicWriteRequest(
                     this.getNextTransactionId(),
                     iid,
-                    m3Data
+                    m3Data,
                 );
 
                 let pdus = await connection.writeCharacteristic(characteristic, [m3Pdu]);
@@ -451,7 +451,7 @@ export default class GattClient extends EventEmitter {
                     const m5Pdu = this.gattProtocol.buildCharacteristicWriteRequest(
                         this.getNextTransactionId(),
                         iid,
-                        m5Data
+                        m5Data,
                     );
 
                     pdus = await connection.writeCharacteristic(characteristic, [m5Pdu]);
@@ -522,12 +522,12 @@ export default class GattClient extends EventEmitter {
             debug('Start Pair-Verify process ...');
             const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
             const characteristicUuid = GattUtils.uuidToNobleUuid(
-                Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-verify')
+                Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pair-verify'),
             );
 
             const { characteristics } = await new GattUtils.Watcher(
                 this.peripheral,
-                this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
+                this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid]),
             ).getPromise();
 
             const characteristic = characteristics.find((c) => {
@@ -718,7 +718,7 @@ export default class GattClient extends EventEmitter {
     removePairing(identifier: string | Buffer): Promise<void> {
         const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const characteristicUuid = GattUtils.uuidToNobleUuid(
-            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
+            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings'),
         );
 
         return this._queueOperation(async () => {
@@ -734,7 +734,7 @@ export default class GattClient extends EventEmitter {
 
                 const { characteristics } = await new GattUtils.Watcher(
                     this.peripheral,
-                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
+                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid]),
                 ).getPromise();
 
                 const characteristic = characteristics.find((c) => {
@@ -810,7 +810,7 @@ export default class GattClient extends EventEmitter {
     addPairing(identifier: string, ltpk: Buffer, isAdmin: boolean): Promise<void> {
         const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const characteristicUuid = GattUtils.uuidToNobleUuid(
-            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
+            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings'),
         );
 
         return this._queueOperation(async () => {
@@ -821,7 +821,7 @@ export default class GattClient extends EventEmitter {
 
                 const { characteristics } = await new GattUtils.Watcher(
                     this.peripheral,
-                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
+                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid]),
                 ).getPromise();
 
                 const characteristic = characteristics.find((c) => {
@@ -894,7 +894,7 @@ export default class GattClient extends EventEmitter {
     listPairings(): Promise<TLV> {
         const serviceUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const characteristicUuid = GattUtils.uuidToNobleUuid(
-            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings')
+            Characteristic.uuidFromCharacteristic('public.hap.characteristic.pairing.pairings'),
         );
 
         return this._queueOperation(async () => {
@@ -905,7 +905,7 @@ export default class GattClient extends EventEmitter {
 
                 const { characteristics } = await new GattUtils.Watcher(
                     this.peripheral,
-                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid])
+                    this.peripheral.discoverSomeServicesAndCharacteristicsAsync([serviceUuid], [characteristicUuid]),
                 ).getPromise();
 
                 const characteristic = characteristics.find((c) => {
@@ -958,7 +958,7 @@ export default class GattClient extends EventEmitter {
                 }
 
                 const tlv = await this.pairingProtocol.parseListPairingsM2(
-                    body.get(GattConstants.Types['HAP-Param-Value'])!
+                    body.get(GattConstants.Types['HAP-Param-Value'])!,
                 );
 
                 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -981,7 +981,7 @@ export default class GattClient extends EventEmitter {
     getAccessories(): Promise<Accessories> {
         const pairingUuid = GattUtils.uuidToNobleUuid(Service.uuidFromService('public.hap.service.pairing'));
         const protocolInformationUuid = GattUtils.uuidToNobleUuid(
-            Service.uuidFromService('public.hap.service.protocol.information.service')
+            Service.uuidFromService('public.hap.service.protocol.information.service'),
         );
         const serviceInstanceIdUuid = GattUtils.uuidToNobleUuid(GattConstants.ServiceInstanceIdUuid);
         const serviceSignatureUuid = GattUtils.uuidToNobleUuid(GattConstants.ServiceSignatureUuid);
@@ -1002,7 +1002,7 @@ export default class GattClient extends EventEmitter {
 
                 const { services, characteristics: allCharacteristics } = await new GattUtils.Watcher(
                     this.peripheral,
-                    this.peripheral.discoverAllServicesAndCharacteristicsAsync()
+                    this.peripheral.discoverAllServicesAndCharacteristicsAsync(),
                 ).getPromise();
 
                 // Get the Service IIDs
@@ -1024,7 +1024,7 @@ export default class GattClient extends EventEmitter {
                     lastOp = queue.queue(async () => {
                         const data = await new GattUtils.Watcher(
                             this.peripheral,
-                            characteristic.readAsync()
+                            characteristic.readAsync(),
                         ).getPromise();
 
                         database.accessories[0].services.push({
@@ -1056,7 +1056,7 @@ export default class GattClient extends EventEmitter {
                         try {
                             const iid = await this._readInstanceId(characteristic);
                             const serviceType = GattUtils.nobleUuidToUuid(
-                                (<{ _serviceUuid: string }>(<unknown>characteristic))._serviceUuid
+                                (<{ _serviceUuid: string }>(<unknown>characteristic))._serviceUuid,
                             );
                             const characteristicType = GattUtils.nobleUuidToUuid(characteristic.uuid);
 
@@ -1085,7 +1085,7 @@ export default class GattClient extends EventEmitter {
 
                 for (const c of characteristics) {
                     const serviceUuid = GattUtils.nobleUuidToUuid(
-                        (<{ _serviceUuid: string }>(<unknown>c.characteristic))._serviceUuid
+                        (<{ _serviceUuid: string }>(<unknown>c.characteristic))._serviceUuid,
                     );
                     const characteristicUuid = GattUtils.nobleUuidToUuid(c.characteristic.uuid);
 
@@ -1100,7 +1100,7 @@ export default class GattClient extends EventEmitter {
 
                         const pdu = this.gattProtocol.buildServiceSignatureReadRequest(
                             this.getNextTransactionId(),
-                            service.iid
+                            service.iid,
                         );
 
                         lastOp = queue.queue(async () => {
@@ -1141,7 +1141,7 @@ export default class GattClient extends EventEmitter {
                 const toFetch = [];
                 for (const c of characteristics) {
                     const serviceUuid = GattUtils.nobleUuidToUuid(
-                        (<{ _serviceUuid: string }>(<unknown>c.characteristic))._serviceUuid
+                        (<{ _serviceUuid: string }>(<unknown>c.characteristic))._serviceUuid,
                     );
                     const characteristicUuid = GattUtils.nobleUuidToUuid(c.characteristic.uuid);
 
@@ -1168,7 +1168,7 @@ export default class GattClient extends EventEmitter {
                         type: true,
                         extra: true,
                     },
-                    connection
+                    connection,
                 );
 
                 for (const entry of list.characteristics) {
@@ -1226,7 +1226,7 @@ export default class GattClient extends EventEmitter {
             format?: string;
         }[],
         options: GetCharacteristicsOptions = {},
-        connection: GattConnection | null = null
+        connection: GattConnection | null = null,
     ): Promise<{ characteristics: Characteristic.CharacteristicObject[] }> {
         const skipQueue = connection !== null;
 
@@ -1239,7 +1239,7 @@ export default class GattClient extends EventEmitter {
                     ev: false,
                     extra: false,
                 },
-                options
+                options,
             );
 
             const cList: NobleCharacteristic[] = [];
@@ -1263,8 +1263,8 @@ export default class GattClient extends EventEmitter {
                     this.peripheral,
                     this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
                         Array.from(new Set(characteristics.map((c) => c.serviceUuid))),
-                        Array.from(new Set(characteristics.map((c) => c.characteristicUuid)))
-                    )
+                        Array.from(new Set(characteristics.map((c) => c.characteristicUuid))),
+                    ),
                 ).getPromise();
 
                 for (const c of characteristics) {
@@ -1302,7 +1302,7 @@ export default class GattClient extends EventEmitter {
                         const iid = match.iid;
                         const pdu = this.gattProtocol.buildCharacteristicSignatureReadRequest(
                             this.getNextTransactionId(),
-                            iid
+                            iid,
                         );
 
                         lastOp = queue.queue(async () => {
@@ -1321,7 +1321,7 @@ export default class GattClient extends EventEmitter {
                             const body = decodeBuffer(response.slice(5, response.length));
 
                             const properties = body.get(
-                                GattConstants.Types['HAP-Param-HAP-Characteristic-Properties-Descriptor']
+                                GattConstants.Types['HAP-Param-HAP-Characteristic-Properties-Descriptor'],
                             );
 
                             if (properties && options.perms) {
@@ -1358,14 +1358,14 @@ export default class GattClient extends EventEmitter {
                             }
 
                             const description = body.get(
-                                GattConstants.Types['HAP-Param-GATT-User-Description-Descriptor']
+                                GattConstants.Types['HAP-Param-GATT-User-Description-Descriptor'],
                             );
                             if (description && options.extra) {
                                 entry.description = description.toString();
                             }
 
                             const format = body.get(
-                                GattConstants.Types['HAP-Param-GATT-Presentation-Format-Descriptor']
+                                GattConstants.Types['HAP-Param-GATT-Presentation-Format-Descriptor'],
                             );
                             if (format && options.meta) {
                                 const sigFormat = format.readUInt8(0);
@@ -1451,7 +1451,7 @@ export default class GattClient extends EventEmitter {
                             }
 
                             const validValuesRange = body.get(
-                                GattConstants.Types['HAP-Param-HAP-Valid-Values-Range-Descriptor']
+                                GattConstants.Types['HAP-Param-HAP-Valid-Values-Range-Descriptor'],
                             );
                             if (validValuesRange && options.extra) {
                                 entry['valid-values-range'] = Array.from(validValuesRange.values()).slice(0, 2);
@@ -1498,7 +1498,7 @@ export default class GattClient extends EventEmitter {
 
                     if (options.extra) {
                         entry!.serviceUuid = GattUtils.nobleUuidToUuid(
-                            (<{ _serviceUuid: string }>(<unknown>c))._serviceUuid
+                            (<{ _serviceUuid: string }>(<unknown>c))._serviceUuid,
                         );
                     }
 
@@ -1564,7 +1564,7 @@ export default class GattClient extends EventEmitter {
      * @returns {Promise} Promise which resolves when the characteristics have been set.
      */
     setCharacteristics(
-        values: { characteristicUuid: string; serviceUuid: string; iid: number; value: unknown }[]
+        values: { characteristicUuid: string; serviceUuid: string; iid: number; value: unknown }[],
     ): Promise<void> {
         return this._queueOperation(async () => {
             const connection = new GattConnection(this.peripheral);
@@ -1583,8 +1583,8 @@ export default class GattClient extends EventEmitter {
                     this.peripheral,
                     this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
                         Array.from(new Set(values.map((c) => c.serviceUuid))),
-                        Array.from(new Set(values.map((c) => c.characteristicUuid)))
-                    )
+                        Array.from(new Set(values.map((c) => c.characteristicUuid))),
+                    ),
                 ).getPromise();
 
                 const queue = new OpQueue();
@@ -1604,7 +1604,7 @@ export default class GattClient extends EventEmitter {
                     const pdu = this.gattProtocol.buildCharacteristicWriteRequest(
                         this.getNextTransactionId(),
                         v.iid,
-                        data
+                        data,
                     );
 
                     lastOp = queue.queue(async () => {
@@ -1677,8 +1677,8 @@ export default class GattClient extends EventEmitter {
                     this.peripheral,
                     this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
                         Array.from(new Set(newSubscriptions.map((c) => c.serviceUuid))),
-                        Array.from(new Set(newSubscriptions.map((c) => c.characteristicUuid)))
-                    )
+                        Array.from(new Set(newSubscriptions.map((c) => c.characteristicUuid))),
+                    ),
                 ).getPromise();
 
                 const queue = new OpQueue();
@@ -1756,7 +1756,7 @@ export default class GattClient extends EventEmitter {
      * @returns {Promise} Promise which resolves when the procedure is done.
      */
     async unsubscribeCharacteristics(
-        characteristics?: { characteristicUuid: string; serviceUuid: string }[]
+        characteristics?: { characteristicUuid: string; serviceUuid: string }[],
     ): Promise<void> {
         if (!this.subscriptionConnection || !this.subscribedCharacteristics.length) {
             return;
@@ -1775,8 +1775,8 @@ export default class GattClient extends EventEmitter {
             this.peripheral,
             this.peripheral.discoverSomeServicesAndCharacteristicsAsync(
                 Array.from(new Set(characteristics.map((c) => c.serviceUuid))),
-                Array.from(new Set(characteristics.map((c) => c.characteristicUuid)))
-            )
+                Array.from(new Set(characteristics.map((c) => c.characteristicUuid))),
+            ),
         ).getPromise();
 
         const queue = new OpQueue();

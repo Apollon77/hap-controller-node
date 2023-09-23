@@ -18,12 +18,13 @@ export interface CharacteristicObject {
     'valid-values-range'?: number[];
     TTL?: number;
     pid?: number;
+    status?: number;
 }
 
 const UuidSuffix = '-0000-1000-8000-0026BB765291';
 
 /* eslint-disable max-len */
-const CharacteristicMapByUuid = {
+const CharacteristicMapByUuid: { [key: string]: string } = {
     [`00000001${UuidSuffix}`]: 'public.hap.characteristic.administrator-only-access',
     [`00000005${UuidSuffix}`]: 'public.hap.characteristic.audio-feedback',
     [`00000008${UuidSuffix}`]: 'public.hap.characteristic.brightness',
@@ -280,7 +281,7 @@ const CharacteristicMapByUuid = {
 
 const CharacteristicMapByCharacteristic = Object.assign(
     {},
-    ...Object.entries(CharacteristicMapByUuid).map(([a, b]) => ({ [b]: a }))
+    ...Object.entries(CharacteristicMapByUuid).map(([a, b]) => ({ [b]: a })),
 );
 
 /**

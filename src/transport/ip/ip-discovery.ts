@@ -15,9 +15,13 @@ export interface HapServiceIp {
      */
     name: string;
     /**
-     * address: the IP address of the accessory
+     * address: the first discovered IP address of the accessory
      */
     address: string;
+    /**
+     * allAddresses: all discovered IP addresses of the accessory
+     */
+    allAddresses: string[];
     /**
      * port: the used port
      */
@@ -165,6 +169,7 @@ export default class IPDiscovery extends EventEmitter {
         return {
             name: service.name,
             address: service.addresses[0],
+            allAddresses: service.addresses,
             port: service.port,
             'c#': parseInt(service.txt['c#']),
             ff: parseInt(service.txt.ff || '0', 10),

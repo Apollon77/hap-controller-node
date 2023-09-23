@@ -17,7 +17,7 @@ export interface ServiceObject {
 
 const UuidSuffix = '-0000-1000-8000-0026BB765291';
 
-const ServiceMapByUuid = {
+const ServiceMapByUuid: { [key: string]: string } = {
     [`0000003E${UuidSuffix}`]: 'public.hap.service.accessory-information',
     [`00000040${UuidSuffix}`]: 'public.hap.service.fan',
     [`00000041${UuidSuffix}`]: 'public.hap.service.garage-door-opener',

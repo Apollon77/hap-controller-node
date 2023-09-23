@@ -137,8 +137,8 @@ export default class GattConnection extends EventEmitter {
                         null,
                         null,
                         writeNonce,
-                        this.sessionKeys!.ControllerToAccessoryKey
-                    )
+                        this.sessionKeys!.ControllerToAccessoryKey,
+                    ),
                 );
 
                 encryptedPdus.push(frame);
@@ -166,8 +166,8 @@ export default class GattConnection extends EventEmitter {
                     pdu,
                     null,
                     readNonce,
-                    this.sessionKeys!.AccessoryToControllerKey
-                )
+                    this.sessionKeys!.AccessoryToControllerKey,
+                ),
             );
 
             return decryptedData;
@@ -201,7 +201,7 @@ export default class GattConnection extends EventEmitter {
                     debug(
                         `${this.peripheral.id}/${this.peripheral.address} Write for characteristic ${
                             characteristic.uuid
-                        } ${pdu.toString('hex')}`
+                        } ${pdu.toString('hex')}`,
                     );
                     await new Watcher(this.peripheral, characteristic.writeAsync(pdu, false)).getPromise();
                 });
@@ -229,7 +229,7 @@ export default class GattConnection extends EventEmitter {
         debug(
             `${this.peripheral.id}/${this.peripheral.address} Received data for characteristic ${
                 characteristic.uuid
-            } ${data.toString('hex')}`
+            } ${data.toString('hex')}`,
         );
 
         pdus.push(data);

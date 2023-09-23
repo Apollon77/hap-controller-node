@@ -126,7 +126,6 @@ module.exports = {
       'always-multiline'
     ],
     'no-console': 0,
-    '@typescript-eslint/no-duplicate-imports': 'error',
     'no-eval': 'error',
     '@typescript-eslint/no-explicit-any': [
       'off',

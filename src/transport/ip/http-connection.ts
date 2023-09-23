@@ -171,7 +171,7 @@ export default class HttpConnection extends EventEmitter {
         debug(
             `${this.address}:${this.port} POST ${path} ${body.toString('hex')} (${
                 body.length ? contentType : 'no content'
-            })`
+            })`,
         );
 
         const data = Buffer.concat([
@@ -200,7 +200,7 @@ export default class HttpConnection extends EventEmitter {
         path: string,
         body: Buffer | string,
         contentType = 'application/hap+json',
-        readEvents = false
+        readEvents = false,
     ): Promise<HttpResponse> {
         if (typeof body === 'string') {
             body = Buffer.from(body);
@@ -261,8 +261,8 @@ export default class HttpConnection extends EventEmitter {
                     aad,
                     null,
                     writeNonce,
-                    this.sessionKeys!.ControllerToAccessoryKey
-                )
+                    this.sessionKeys!.ControllerToAccessoryKey,
+                ),
             );
 
             encryptedData.push(aad);
@@ -352,8 +352,8 @@ export default class HttpConnection extends EventEmitter {
                                 data,
                                 aad,
                                 readNonce,
-                                this.sessionKeys!.AccessoryToControllerKey
-                            )
+                                this.sessionKeys!.AccessoryToControllerKey,
+                            ),
                         );
 
                         message = message.slice(18 + frameLength, message.length);
@@ -380,7 +380,7 @@ export default class HttpConnection extends EventEmitter {
 
                 debug(
                     `${this.address}:${this.port} ` +
-                        `Response ${response.statusCode} with ${response.body.length} byte data`
+                        `Response ${response.statusCode} with ${response.body.length} byte data`,
                 );
                 resolve(response);
             });
@@ -433,7 +433,7 @@ export default class HttpConnection extends EventEmitter {
 
                 debug(
                     `${this.address}:${this.port} ` +
-                        `Response ${response.statusCode} with ${response.body.length} byte data`
+                        `Response ${response.statusCode} with ${response.body.length} byte data`,
                 );
                 resolve(response);
             });

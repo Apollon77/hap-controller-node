@@ -103,8 +103,8 @@ export function encodeObject(obj: TLV): Buffer {
                     `Add ${length} bytes for tag ${tag}: ${values[valueIdx].toString(
                         'hex',
                         position,
-                        position + length
-                    )}`
+                        position + length,
+                    )}`,
                 );
                 const tlv = Buffer.allocUnsafe(length + 2);
                 tlv.writeUInt8(tag, 0);
