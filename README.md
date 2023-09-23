@@ -273,7 +273,7 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
-### __WORK IN PROGRESS__
+### 0.10.0 (2023-09-23)
 * (Apollon77) Also return all found addresses and not just the first one
 * (Apollon77) Update dependencies
 
