@@ -3,7 +3,7 @@ const readline = require('readline').createInterface({
     output: process.stdout,
 });
 
-const { HttpClient, IPDiscovery } = require('../../lib');
+const { HttpClient, IPDiscovery } = require('hap-controller');
 
 const discovery = new IPDiscovery();
 
@@ -12,7 +12,7 @@ discovery.on('serviceUp', async (service) => {
 
     if (service.availableToPair) {
         try {
-            const pairMethod = await discovery.getPairingMethod(service);
+            const pairMethod = await discovery.getPairMethod(service);
 
             const client = new HttpClient(service.id, service.address, service.port);
 
