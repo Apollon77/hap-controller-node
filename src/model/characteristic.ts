@@ -253,8 +253,6 @@ const CharacteristicMapByUuid: { [key: string]: string } = {
     [`0000024A${UuidSuffix}`]: 'public.hap.characteristic.heart-beat', // since iOS 14,
     [`0000024B${UuidSuffix}`]: 'public.hap.characteristic.characteristic-value-active-transition-count', // since iOS 14
     [`0000024C${UuidSuffix}`]: 'public.hap.characteristic.supported-diagnostics-modes',
-    [`00000246${UuidSuffix}`]: 'public.hap.characteristic.cca-energy-detect-threshold',
-    [`0000024A${UuidSuffix}`]: 'public.hap.characteristic.heart-beat',
     [`0000024D${UuidSuffix}`]: 'public.hap.characteristic.selected-diagnostics-modes',
     [`00000254${UuidSuffix}`]: 'public.hap.characteristic.siri.endpoint-session-status',
     [`00000255${UuidSuffix}`]: 'public.hap.characteristic.siri.enable',
