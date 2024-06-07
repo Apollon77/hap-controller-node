@@ -5,7 +5,7 @@
 import { EventEmitter } from 'events';
 import { Watcher } from './gatt-utils';
 import sodium from 'libsodium-wrappers';
-import { Characteristic, Peripheral } from '@abandonware/noble';
+import { Characteristic, Peripheral } from '@stoprocent/noble';
 import { SessionKeys } from '../../protocol/pairing-protocol';
 import Debug from 'debug';
 import { OpQueue } from '../../utils/queue';

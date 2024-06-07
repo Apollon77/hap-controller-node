@@ -3,12 +3,12 @@
  */
 
 import { EventEmitter } from 'events';
-import { Peripheral } from '@abandonware/noble';
+import { Peripheral } from '@stoprocent/noble';
 import GattClient from './gatt-client';
 import Debug from 'debug';
 
-let noble: typeof import('@abandonware/noble');
-noble = require('@abandonware/noble');
+let noble: typeof import('@stoprocent/noble');
+noble = require('@stoprocent/noble');
 if (typeof noble.on !== 'function') {
     // The following commit broke the default exported instance of noble:
     // https://github.com/abandonware/noble/commit/b67eea246f719947fc45b1b52b856e61637a8a8e

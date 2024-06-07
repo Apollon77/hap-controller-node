@@ -28,7 +28,7 @@
   },
   "homepage": "https://github.com/Apollon77/hap-controller-node#readme",
   "dependencies": {
-    "@abandonware/noble": "1.9.2-25",
+    "@stoprocent/noble": "1.14.1",
     "bignumber.js": "^9.1.2",
     "debug": "^4.3.4",
     "dnssd": "^0.4.1",
