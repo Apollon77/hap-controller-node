@@ -273,6 +273,10 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
+
+### __WORK IN PROGRESS__
+* (Apollon77) Change noble to @stoprocent fork 
+
 ### 0.10.1 (2023-11-23)
 * (Apollon77) Remove duplicate entries in characteristic list
 

@@ -1,4 +1,4 @@
-import type { Peripheral } from '@abandonware/noble';
+import type { Peripheral } from '@stoprocent/noble';
 
 /**
  * Convert a proper UUID to noble's format.

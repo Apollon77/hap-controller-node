@@ -11,7 +11,7 @@ import * as GattUtils from './gatt-utils';
 import PairingProtocol, { PairingData, PairMethods } from '../../protocol/pairing-protocol';
 import * as Service from '../../model/service';
 import { decodeBuffer, TLV } from '../../model/tlv';
-import { Characteristic as NobleCharacteristic, Peripheral as NoblePeripheral } from '@abandonware/noble';
+import { Characteristic as NobleCharacteristic, Peripheral as NoblePeripheral } from '@stoprocent/noble';
 import { DiscoveryPairingFeatureFlags } from '../ip/ip-discovery';
 import Debug from 'debug';
 import { Accessories } from '../../model/accessory';
