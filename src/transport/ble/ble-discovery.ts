@@ -178,7 +178,7 @@ export default class BLEDiscovery extends EventEmitter {
 
         // Only manually start if powered on already. Otherwise, wait for state
         // change and handle it there.
-        if ((<{ _state: string }>(<unknown>noble))._state === 'poweredOn') {
+        if (noble._state === 'poweredOn') {
             noble.startScanning([], true);
         }
     }
@@ -230,7 +230,7 @@ export default class BLEDiscovery extends EventEmitter {
     }
 
     private _handleScanStop(): void {
-        if (this.scanEnabled && (<{ _state: string }>(<unknown>noble))._state === 'poweredOn') {
+        if (this.scanEnabled && noble._state === 'poweredOn') {
             noble.startScanning([], true);
         }
     }
