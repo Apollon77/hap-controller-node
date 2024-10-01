@@ -45,7 +45,7 @@
     "@types/dnssd": "^0.4.5",
     "@types/json-bigint": "^1.0.4",
     "@types/libsodium-wrappers": "^0.7.14",
-    "@types/node": "^22.7.3",
+    "@types/node": "^22.7.4",
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
