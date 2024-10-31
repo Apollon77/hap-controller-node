@@ -226,6 +226,9 @@ export default class BLEDiscovery extends EventEmitter {
     }
 
     private _handleStateChange(state: string): void {
+        if (!noble) {
+            return;
+        }
         if (state === 'poweredOn' && this.scanEnabled) {
             noble.startScanning([], true);
         } else {
@@ -234,12 +237,18 @@ export default class BLEDiscovery extends EventEmitter {
     }
 
     private _handleScanStart(): void {
+        if (!noble) {
+            return;
+        }
         if (!this.scanEnabled) {
             noble.stopScanning();
         }
     }
 
     private _handleScanStop(): void {
+        if (!noble) {
+            return;
+        }
         if (this.scanEnabled && noble._state === 'poweredOn') {
             noble.startScanning([], true);
         }
