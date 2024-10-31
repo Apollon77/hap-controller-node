@@ -273,8 +273,7 @@ Please feel free to open an [issue](https://github.com/Apollon77/hap-controller-
 For Issues please consider to directly provide debug loggins (see above). 
 
 ## Changelog
-
-### __WORK IN PROGRESS__
+### 0.10.2 (2024-10-31)
 * (dnicolson/Apollon77) Change noble to @stoprocent fork 
 * (Apollon77) prevent crash on import/require when no BLE device is not connected
 
