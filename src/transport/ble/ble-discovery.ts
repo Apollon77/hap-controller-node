@@ -7,12 +7,16 @@ import { Peripheral } from '@stoprocent/noble';
 import GattClient from './gatt-client';
 import Debug from 'debug';
 
-let noble: typeof import('@stoprocent/noble');
-noble = require('@stoprocent/noble');
-if (typeof noble.on !== 'function') {
-    // The following commit broke the default exported instance of noble:
-    // https://github.com/abandonware/noble/commit/b67eea246f719947fc45b1b52b856e61637a8a8e
-    noble = (noble as any)({ extended: false });
+let noble: typeof import('@stoprocent/noble') | null = null;
+try {
+    noble = require('@stoprocent/noble');
+    if (typeof noble?.on !== 'function') {
+        // The following commit broke the default exported instance of noble:
+        // https://github.com/abandonware/noble/commit/b67eea246f719947fc45b1b52b856e61637a8a8e
+        noble = (noble as any)({ extended: false });
+    }
+} catch (error) {
+    console.error('Cannot start noble. Make sure it is installed and BLE device is connected.');
 }
 const debug = Debug('hap-controller:gatt-client');
 
@@ -168,6 +172,9 @@ export default class BLEDiscovery extends EventEmitter {
      *                  updated in the advertisement.
      */
     start(allowDuplicates = false): void {
+        if (!noble) {
+            throw new Error('BLE not enabled');
+        }
         this.scanEnabled = true;
         this.allowDuplicates = allowDuplicates;
 
@@ -207,6 +214,9 @@ export default class BLEDiscovery extends EventEmitter {
      * Stop an ongoing discovery process.
      */
     stop(): void {
+        if (!noble) {
+            throw new Error('BLE not enabled');
+        }
         this.scanEnabled = false;
         noble.stopScanning();
         noble.removeListener('stateChange', this.handleStateChange);
