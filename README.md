@@ -276,7 +276,7 @@ For Issues please consider to directly provide debug loggins (see above).
 
 ### __WORK IN PROGRESS__
 * (dnicolson/Apollon77) Change noble to @stoprocent fork 
-* (Apollon77) prevent crash when no BLE device isc connected
+* (Apollon77) prevent crash on import/require when no BLE device is not connected
 
 ### 0.10.1 (2023-11-23)
 * (Apollon77) Remove duplicate entries in characteristic list
