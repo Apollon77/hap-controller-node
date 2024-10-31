@@ -16,7 +16,7 @@ try {
         noble = (noble as any)({ extended: false });
     }
 } catch (error) {
-    console.error('Cannot start noble. Make sure it is installed and BLE device is connected.');
+    // Ignore
 }
 const debug = Debug('hap-controller:gatt-client');
 
@@ -173,7 +173,7 @@ export default class BLEDiscovery extends EventEmitter {
      */
     start(allowDuplicates = false): void {
         if (!noble) {
-            throw new Error('BLE not enabled');
+            throw new Error('BLE could not be enabled or no device found');
         }
         this.scanEnabled = true;
         this.allowDuplicates = allowDuplicates;
@@ -215,7 +215,7 @@ export default class BLEDiscovery extends EventEmitter {
      */
     stop(): void {
         if (!noble) {
-            throw new Error('BLE not enabled');
+            throw new Error('BLE could not be enabled or no device found');
         }
         this.scanEnabled = false;
         noble.stopScanning();
