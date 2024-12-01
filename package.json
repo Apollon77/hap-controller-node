@@ -37,7 +37,7 @@
     "json-bigint": "^1.0.0",
     "libsodium-wrappers": "^0.7.15",
     "node-hkdf-sync": "^1.0.0",
-    "uuid": "^11.0.2"
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
     "@alcalzone/release-script": "^3.8.0",
