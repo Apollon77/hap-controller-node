@@ -30,7 +30,7 @@
   "dependencies": {
     "@stoprocent/noble": "^1.15.1",
     "bignumber.js": "^9.1.2",
-    "debug": "^4.3.7",
+    "debug": "^4.4.0",
     "dnssd": "^0.4.1",
     "fast-srp-hap": "^2.0.4",
     "http-parser-js": "^0.5.8",
