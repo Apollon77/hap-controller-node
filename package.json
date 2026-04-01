@@ -29,7 +29,7 @@
   "homepage": "https://github.com/Apollon77/hap-controller-node#readme",
   "dependencies": {
     "@stoprocent/noble": "^1.15.1",
-    "bignumber.js": "^9.1.2",
+    "bignumber.js": "^10.0.2",
     "debug": "^4.3.7",
     "dnssd": "^0.4.1",
     "fast-srp-hap": "^2.0.4",
