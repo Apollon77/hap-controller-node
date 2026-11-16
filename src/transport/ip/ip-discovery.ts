@@ -5,6 +5,7 @@
 import { EventEmitter } from 'events';
 import { Browser, Options, Service, ServiceType } from 'dnssd';
 import { PairMethods } from '../../protocol/pairing-protocol';
+import './dnssd-readfqdn-fix';
 
 /**
  * Service data structure returned by discovery methods

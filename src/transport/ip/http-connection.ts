@@ -360,7 +360,15 @@ export default class HttpConnection extends EventEmitter {
                         ++this.a2cCounter;
                         parser.execute(decryptedData);
                     } catch (e) {
-                        // pass
+                        // Decryption failed: the stream is desynchronised (e.g. nonce mismatch after an
+                        // unclean disconnect). `message` is only advanced on success, so swallowing the
+                        // error spins this loop forever (100% CPU). Close the socket and reject so the
+                        // caller fails fast and reconnects. On the event-reader path the promise is
+                        // already resolved, so reject() is a no-op there.
+                        debug(`${this.address}:${this.port} Decrypting message failed, closing connection`);
+                        this.socket?.removeListener('data', bodyParser);
+                        this.close();
+                        return reject(e);
                     }
                 }
             };
